@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- Scam Sprint V16.2: FraudFront Ultimate Arcade by Suyash Dash -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#070913" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Scam Sprint: FraudFront Ultimate Arcade by Suyash Dash</title>
+  <meta name="description" content="A FraudFront-inspired scam-awareness arcade with randomized scam and cybersecurity microgames by Suyash Dash." />
+  <link rel="stylesheet" href="FFcss.css" />
+</head>
+<body>
+  <div class="bg-glow bg-glow-a" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-b" aria-hidden="true"></div>
+
+  <main id="app" class="app-shell" tabindex="-1">
+    <noscript>
+      <section class="panel">
+        <h1>JavaScript is required</h1>
+        <p>Please enable JavaScript to play Scam Sprint.</p>
+      </section>
+    </noscript>
+  </main>
+
+  <!-- ============================================================
+       V16.2 No-Email Online Play + Room Multiplayer Configuration
+       WHAT CHANGED IN V16.2:
+       - Players use the profile name + local profile password already in the game.
+       - Supabase signs them in anonymously behind the scenes—no email form.
+       - Create/join multiplayer rooms with a short six-character code.
+
+       SETUP:
+       1) Create a free Supabase project.
+       2) Turn ON "Allow new users to sign up" and "Allow anonymous sign-ins".
+       3) Run GLOBAL_SETUP.sql from this V16.2 package once.
+       4) Paste ONLY the Project URL and public publishable/anonymous key below.
+       NEVER paste a secret or service-role key into browser code.
+       Leave blank to keep private password-protected local profiles only.
+       ============================================================ -->
+  <script>
+    window.FF_ONLINE_CONFIG = {
+      supabaseUrl: "https://qrxemhnhmpndvammjhue.supabase.co",
+      anonKey: "sb_publishable_7AdzHB282o402S-XinvIWw_97OwsjU6",
+      submitRpc: "submit_score",
+      readRpc: "get_leaderboard",
+      profileRpc: "upsert_ff_profile",
+      matchRpc: "submit_match_result",
+      lobbyChannel: "ff-global-lobby",
+
+      // V16.2 room-code multiplayer RPCs. Keep these names unchanged
+      // unless you intentionally rename the SQL functions.
+      createRoomRpc: "ff_create_room",
+      joinRoomRpc: "ff_join_room",
+      startRoomRpc: "ff_start_room",
+      updateRoomRpc: "ff_update_room_progress",
+      heartbeatRoomRpc: "ff_room_heartbeat",
+      leaveRoomRpc: "ff_leave_room"
+    };
+    // Backward-compatible name retained for the original V16 leaderboard code.
+    window.FF_LEADERBOARD_CONFIG = window.FF_ONLINE_CONFIG;
+  </script>
+
+  <!-- Supabase browser client is used only after the two public values above are configured. No email is collected by V16.2. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+
+  <!-- Core 657-round data bank and complete game engine -->
+  <script src="FFlevels.js" defer></script>
+  <script src="FFgame.js" defer></script>
+</body>
+</html>
