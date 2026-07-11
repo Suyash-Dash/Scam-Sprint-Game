@@ -2651,3 +2651,23 @@ button,
   .room-lobby-hero { grid-template-columns: minmax(0, 1fr) minmax(210px, .45fr); }
   .room-code-card > strong { font-size: 2rem; }
 }
+
+
+/* ============================================================
+   V16.3 ADDITIVE STYLES — WORLDWIDE RANK SYNC
+   ============================================================ */
+.global-sync-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  align-items: center;
+  margin: 12px 0;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: rgba(255,255,255,0.055);
+}
+.global-sync-summary span,
+.global-sync-summary small { color: var(--muted); }
+.global-sync-summary strong { color: var(--teal); font-size: 1.35rem; }
+.global-sync-summary small { grid-column: 1 / -1; }
