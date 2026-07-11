@@ -4036,14 +4036,18 @@
         <div class="leaderboard-row leaderboard-head" role="row">
           <span>Rank</span><span>Player</span><span>Score</span><span>Wins</span>
         </div>
-        ${rows.map((row, index) => `
+        ${rows.map((row, index) => {
+          const rank = Math.max(1, Number(row.rank_position || row.rank || (index + 1)));
+          const rankLabel = rank <= 3 ? ["🥇", "🥈", "🥉"][rank - 1] : rank;
+          return `
           <div class="leaderboard-row" role="row">
-            <span class="rank-medal">${index < 3 ? ["🥇", "🥈", "🥉"][index] : index + 1}</span>
+            <span class="rank-medal">${rankLabel}</span>
             <strong>${esc(row.username || "Player")}</strong>
             <span>${Number(row.score || 0).toLocaleString()}</span>
             <span>${Number(row.wins || 0).toLocaleString()}</span>
           </div>
-        `).join("")}
+        `;
+        }).join("")}
       </div>
     `;
   }
@@ -4423,6 +4427,7 @@
       const rows = await v16FetchGlobalLeaderboard(50);
       if (!$("#globalLeaderboardHost")) return;
       host.innerHTML = v16LeaderboardRows(rows.map((row) => ({
+        rank_position: row.rank_position,
         username: row.username,
         score: row.score,
         wins: row.wins
@@ -5727,9 +5732,40 @@
           showProfileManager("cloud");
         } catch (error) { errorNode.textContent = error.message || "Username could not be saved."; }
       });
-      on($("#globalShareToggle"), "change", (event) => {
-        v16UpdateProfile(active.id, { globalShare: event.target.checked });
-        toast(event.target.checked ? "Worldwide score publishing enabled." : "Worldwide score publishing disabled.");
+      on($("#globalShareToggle"), "change", async (event) => {
+        const enabled = event.target.checked;
+        v16UpdateProfile(active.id, { globalShare: enabled });
+        if (!enabled) {
+          toast("Worldwide score publishing disabled. Existing published records remain in the public rankings.");
+          return;
+        }
+        try {
+          if (Number(active.bestScore || 0) > 0) {
+            const score = await v163PublishSavedBest(active);
+            toast(`Worldwide publishing enabled. ${score.toLocaleString()} points synchronized.`);
+          } else {
+            toast("Worldwide publishing enabled. Finish a scored run to receive a rank.");
+          }
+          showProfileManager("cloud");
+        } catch (error) {
+          const errorNode = $("#globalSyncError");
+          if (errorNode) errorNode.textContent = v162FriendlyOnlineError(error);
+          else toast(v162FriendlyOnlineError(error));
+        }
+      });
+      on($("#publishBestNowBtn"), "click", async () => {
+        const button = $("#publishBestNowBtn");
+        const errorNode = $("#globalSyncError");
+        if (button) button.disabled = true;
+        if (errorNode) errorNode.textContent = "Publishing saved best…";
+        try {
+          const score = await v163PublishSavedBest(active);
+          toast(`${score.toLocaleString()} points published worldwide.`);
+          showProfileManager("cloud");
+        } catch (error) {
+          if (button) button.disabled = false;
+          if (errorNode) errorNode.textContent = v162FriendlyOnlineError(error);
+        }
       });
       on($("#openMultiplayerBtn"), "click", () => v16RequireUnlocked(showMultiplayerLobby));
       on($("#cloudSignOutBtn"), "click", async () => { await v16CloudSignOut(); showProfileManager("cloud"); toast("Signed out of worldwide play."); });
@@ -5902,7 +5938,7 @@
     try {
       const rows = await v16FetchGlobalLeaderboard(3);
       if (!$("#homeGlobalPreview")) return;
-      host.innerHTML = rows.length ? rows.map((row,index)=>`<div class="mini-rank"><span>${index+1}</span><strong>${esc(row.username)}</strong><b>${Number(row.score||0).toLocaleString()}</b></div>`).join("") : `<p class="muted">No worldwide scores yet.</p>`;
+      host.innerHTML = rows.length ? rows.map((row,index)=>`<div class="mini-rank"><span>${Number(row.rank_position || index + 1)}</span><strong>${esc(row.username)}</strong><b>${Number(row.score||0).toLocaleString()}</b></div>`).join("") : `<p class="muted">No published worldwide scores yet.</p>`;
     } catch { /* local preview remains available */ }
   }
 
@@ -5913,7 +5949,7 @@
       <section class="screen">${topbar()}<div class="panel leaderboard-panel">
         <div class="leaderboard-hero"><div><span class="eyebrow">Persistent rankings</span><h1>Local and worldwide defenders.</h1><p>Local scores stay on this browser. Worldwide scores remain in the connected database and can be seen by players on other devices.</p></div><div class="leaderboard-actions"><button class="btn" id="backBtn">Back Home</button><button class="btn btn-secondary" id="profilesBtn">Account Settings</button><button class="btn btn-primary" id="versusBtn">Global VS Lobby</button></div></div>
         <div class="leaderboard-columns"><section class="leaderboard-board"><div class="leaderboard-title"><strong>💾 This Device</strong><span>${localRows.length} protected profile${localRows.length===1?"":"s"}</span></div>${v16LeaderboardRows(localRows,"Finish a run to create the first score.")}</section><section class="leaderboard-board"><div class="leaderboard-title"><strong>🌎 Worldwide</strong><span>${v16GlobalConfigured()?"Persistent database":"Setup required"}</span></div><div id="globalLeaderboardHost"></div></section></div>
-        <div class="privacy-note compact"><strong>Optional score publishing</strong><p>${esc(active.username)} can connect through no-email Online Play and enable publishing before completed full-run scores are stored globally. Local passwords never leave this browser.</p></div>
+        <div class="privacy-note compact"><strong>Worldwide rankings are canonical</strong><p>Only players with a published score appear worldwide. Rank is calculated in the shared Supabase database, so every browser receives the same order. “This Device” remains intentionally different because it contains only profiles stored in that browser.</p></div>
       </div></section>`);
     wireTopbar();
     on($("#motionEnableBtn"), "click", async () => {
@@ -6414,6 +6450,45 @@
   }
 
   /* ============================================================
+     V16.3 WORLDWIDE RANKING CONSISTENCY FIX
+     ------------------------------------------------------------
+     - Connecting creates an alias row, but that zero-score placeholder
+       is no longer displayed by the SQL leaderboard.
+     - Enabling publishing immediately synchronizes the profile's saved
+       local best score without falsely adding another win.
+     - The database now calculates canonical tied ranks.
+     ============================================================ */
+  async function v163PublishSavedBest(profile = v16GetActiveProfile()) {
+    if (!profile) throw new Error("Choose a profile first.");
+    await v162EnsureAnonymousOnlineSession();
+
+    const bestScore = clamp(Number(profile.bestScore || 0), 0, 50000);
+    const bestStreak = clamp(Number(profile.bestStreak || 0), 0, 100);
+    if (bestScore <= 0) {
+      throw new Error("Finish at least one scored run before publishing a worldwide rank.");
+    }
+
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    await v16CloudUpsertAlias(profile.username);
+    const { error } = await client.rpc(config.submitRpc, {
+      p_username: profile.username,
+      p_score: bestScore,
+      p_best_streak: bestStreak,
+      /* Existing saved best is a synchronization, not a new victory. */
+      p_won: false
+    });
+    if (error) throw error;
+
+    v16UpdateProfile(profile.id, {
+      globalShare: true,
+      lastGlobalSyncScore: bestScore,
+      lastGlobalSyncAt: v16NowIso()
+    });
+    return bestScore;
+  }
+
+  /* ============================================================
      V16.2 Account Navigation Override
      The V16.1 Account Settings layout is preserved; only the cloud tab
      is relabeled and its contents are replaced with no-email controls.
@@ -6472,7 +6547,10 @@
             <article>
               <span>🏆</span><strong>Worldwide Scores</strong>
               <p>Choose whether completed full-arcade scores from this profile may appear publicly.</p>
+              <div class="global-sync-summary"><span>Saved local best</span><strong>${Number(active.bestScore || 0).toLocaleString()}</strong><small>${active.lastGlobalSyncScore ? `Last worldwide sync: ${Number(active.lastGlobalSyncScore).toLocaleString()}` : "Not published yet"}</small></div>
               <label class="privacy-toggle global-share-large"><input id="globalShareToggle" type="checkbox" ${active.globalShare ? "checked" : ""}><span><strong>Publish completed full-run scores</strong><small>Shares gamer tag and game statistics only.</small></span></label>
+              <button class="btn btn-good" id="publishBestNowBtn" ${Number(active.bestScore || 0) > 0 ? "" : "disabled"}>Publish My Current Best Now</button>
+              <p class="form-error" id="globalSyncError" role="alert"></p>
             </article>
           </div>
 
