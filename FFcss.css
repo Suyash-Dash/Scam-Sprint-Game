@@ -1,5 +1,5 @@
 /* ============================================================
-   Scam Sprint Ultimate Arcade V16.1 — FFcss.css
+   Scam Sprint Ultimate Arcade V16.6 — FFcss.css
    Purpose: preserved visual system plus additive phone portrait/landscape, touch,
    aligned HUD, profile, leaderboard, demo, and action-game layout upgrades.
    ============================================================ */
@@ -2671,3 +2671,1952 @@ button,
 .global-sync-summary small { color: var(--muted); }
 .global-sync-summary strong { color: var(--teal); font-size: 1.35rem; }
 .global-sync-summary small { grid-column: 1 / -1; }
+
+/* ============================================================
+   41) V16.4 ADDITIVE POLISH — RESPONSIVE + ACCESSIBLE UI
+   ------------------------------------------------------------
+   The complete V16.3 stylesheet remains above. These rules repair
+   crowded screens and add V16.4 modes, controls, rooms, teams,
+   reactions, spectator progress, and senior-friendly Easy View.
+   ============================================================ */
+
+/* ============================================================
+   41A) Safer Viewport and Scroll Behavior
+   ============================================================ */
+html,
+body {
+  min-height: 100%;
+  min-height: 100dvh;
+  overscroll-behavior-y: contain;
+}
+
+body.game-active {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.app-shell {
+  min-height: var(--ff-app-height, 100dvh);
+  align-content: start;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(18px, env(safe-area-inset-bottom));
+}
+
+.screen,
+.panel,
+.round-panel,
+.microgame-zone,
+.v164-responsive-microgame,
+.v164-responsive-round-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.v164-responsive-round-panel {
+  align-items: start;
+}
+
+.v164-responsive-microgame {
+  width: 100%;
+  max-width: 100%;
+  min-height: clamp(300px, 49vh, 620px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.v164-responsive-microgame > * {
+  max-width: 100%;
+}
+
+/* ============================================================
+   41B) Cleaner, Less-Crowded Home Screen
+   ============================================================ */
+.v164-home-panel {
+  display: grid;
+  gap: 24px;
+  align-content: start;
+}
+
+.v164-home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 22px;
+}
+
+.v164-home-hero h1 {
+  max-width: 900px;
+  margin-bottom: 16px;
+}
+
+.v164-home-hero p {
+  max-width: 790px;
+  font-size: 1.04rem;
+}
+
+.v164-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.v164-mode-grid .home-mode-card {
+  min-height: 166px;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  align-content: start;
+  gap: 8px;
+  padding: 20px;
+}
+
+.home-mode-card.endless {
+  border-color: rgba(255, 200, 87, 0.45);
+  background:
+    radial-gradient(circle at 88% 10%, rgba(255, 200, 87, 0.18), transparent 8rem),
+    rgba(255, 255, 255, 0.065);
+}
+
+.v164-resume-bar {
+  width: 100%;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 18px;
+  border: 1px solid rgba(82, 224, 139, 0.45);
+  border-radius: 18px;
+  color: var(--text);
+  text-align: left;
+  background: rgba(82, 224, 139, 0.09);
+}
+
+.v164-resume-bar > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #07120c;
+  background: linear-gradient(135deg, var(--green), var(--teal));
+  font-weight: 1000;
+}
+
+.v164-resume-bar strong,
+.v164-resume-bar small {
+  display: block;
+}
+
+.v164-resume-bar small {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.v164-home-tools {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.v164-home-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.v164-home-stats > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.v164-home-stats strong,
+.v164-home-stats span {
+  display: block;
+}
+
+.v164-home-stats strong {
+  color: var(--teal);
+  font-size: 1.28rem;
+}
+
+.v164-home-stats span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* ============================================================
+   41C) Arcade and Endless Setup
+   ============================================================ */
+.v164-setup-panel {
+  display: grid;
+  gap: 17px;
+  align-content: start;
+}
+
+.v164-setup-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 950px;
+}
+
+.v164-audience-grid .choice-card {
+  min-height: 138px;
+}
+
+.v164-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+/* ============================================================
+   41D) Swipe Minigame — No Overlapping Text
+   ============================================================ */
+.v164-swipe-stage {
+  width: min(720px, 100%);
+  min-height: 0;
+  display: grid;
+  gap: 14px;
+  margin: 0 auto;
+  padding: 4px;
+  overflow: visible;
+}
+
+.v164-swipe-progress {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.v164-swipe-progress > div,
+.v164-spectator-progress > div {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.v164-swipe-progress i,
+.v164-spectator-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--iris), var(--teal));
+}
+
+.v164-swipe-card {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  min-height: 270px;
+  max-height: none;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  margin: 0;
+  padding: clamp(18px, 4vw, 28px);
+  overflow: visible;
+  transform-origin: center bottom;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.v164-swipe-card .profile-top {
+  position: static;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.v164-swipe-card .profile-top h3,
+.v164-swipe-card .profile-top p {
+  position: static;
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.v164-swipe-copy {
+  position: static;
+  width: 100%;
+  max-height: none;
+  min-height: 96px;
+  padding: 16px;
+  overflow: visible;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: clamp(1rem, 2.2vw, 1.15rem);
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.v164-swipe-hints {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.v164-swipe-stage .swipe-controls {
+  position: static;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.v164-swipe-stage .swipe-btn {
+  min-height: 58px;
+  white-space: normal;
+}
+
+.v164-control-note {
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.86rem;
+}
+
+/* ============================================================
+   41E) Universal Touch + Tilt Controller
+   ============================================================ */
+.v164-mobile-controller {
+  display: none;
+  width: min(590px, 100%);
+  margin: 12px auto 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(7, 12, 28, 0.94);
+  box-shadow: var(--shadow2);
+  position: sticky;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  z-index: 40;
+}
+
+.v164-controller-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.v164-controller-label button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(22, 214, 209, 0.4);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(22, 214, 209, 0.1);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.v164-control-pad {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(48px, 1fr));
+  gap: 8px;
+}
+
+.v164-control-pad button {
+  min-width: 0;
+  min-height: 58px;
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 1.3rem;
+  font-weight: 1000;
+  touch-action: none;
+  user-select: none;
+}
+
+.v164-control-pad button.action {
+  background: linear-gradient(135deg, rgba(124, 92, 255, 0.75), rgba(22, 214, 209, 0.7));
+}
+
+.v164-control-pad button.pressed {
+  transform: translateY(2px) scale(0.96);
+  filter: brightness(1.35);
+}
+
+.v164-mobile-controller > small {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.touch-mode .v164-mobile-controller,
+.is-mobile-layout .v164-mobile-controller {
+  display: block;
+}
+
+@media (pointer: coarse) {
+  .v164-mobile-controller { display: block; }
+}
+
+/* ============================================================
+   41F) Chat Report Layout
+   ============================================================ */
+.v164-chat-report {
+  grid-template-columns: minmax(170px, 0.34fr) minmax(0, 1fr);
+  min-height: min(510px, 62vh);
+}
+
+.v164-chat-report .chat-log {
+  min-height: 245px;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.v164-chat-report .player-list {
+  max-height: 430px;
+  overflow-y: auto;
+}
+
+/* ============================================================
+   41G) Separate Leaderboards
+   ============================================================ */
+.v164-board-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.v164-leaderboard-table .leaderboard-row {
+  grid-template-columns: 68px minmax(130px, 1fr) minmax(86px, auto) minmax(72px, auto);
+}
+
+/* ============================================================
+   41H) Online Hub, Matchmaking, and Teams
+   ============================================================ */
+.v164-online-hub {
+  display: grid;
+  gap: 22px;
+}
+
+.v164-online-sections {
+  display: grid;
+  gap: 18px;
+}
+
+.v164-online-section {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.v164-section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  margin-bottom: 15px;
+}
+
+.v164-section-title > span {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 15px;
+  background: rgba(124, 92, 255, 0.16);
+  font-size: 1.35rem;
+}
+
+.v164-section-title h2,
+.v164-section-title p {
+  margin: 0;
+}
+
+.v164-section-title p {
+  margin-top: 5px;
+}
+
+.v164-match-search-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.v164-search-card {
+  min-height: 145px;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  color: var(--text);
+  text-align: left;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.v164-search-card > span {
+  font-size: 1.8rem;
+}
+
+.v164-search-card strong,
+.v164-search-card small {
+  display: block;
+}
+
+.v164-search-card small {
+  color: var(--muted);
+}
+
+.v164-matchmaking-panel {
+  min-height: 560px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.v164-search-spinner {
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(22, 214, 209, 0.5);
+  border-radius: 50%;
+  background: rgba(22, 214, 209, 0.09);
+  font-size: 2.6rem;
+  animation: v164SearchPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes v164SearchPulse {
+  50% { transform: scale(1.07); box-shadow: 0 0 42px rgba(22, 214, 209, 0.24); }
+}
+
+.v164-search-status {
+  min-width: min(420px, 100%);
+  padding: 13px;
+  border-radius: 14px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.v164-team-picker {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 15px;
+  padding: 13px;
+  border: 1px solid rgba(22, 214, 209, 0.25);
+  border-radius: 15px;
+  background: rgba(22, 214, 209, 0.06);
+}
+
+.v164-team-picker > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.v164-team-score-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 9px;
+}
+
+.v164-team-score-strip > div {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 3px 8px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.v164-team-score-strip strong {
+  justify-self: end;
+}
+
+.v164-team-score-strip small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   41I) Preset Reactions — No Free-Text Chat
+   ============================================================ */
+.v164-reaction-dock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 9px;
+  border-top: 1px solid var(--line);
+}
+
+.v164-reaction-dock > span {
+  margin-right: 3px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.v164-reaction-dock button {
+  min-width: 43px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.075);
+  font-weight: 950;
+}
+
+.v164-reaction-stream {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  top: 18%;
+  width: min(260px, calc(100vw - 24px));
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.v164-floating-reaction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 13px;
+  border: 1px solid rgba(22, 214, 209, 0.45);
+  border-radius: 15px;
+  background: rgba(7, 12, 28, 0.94);
+  box-shadow: var(--shadow2);
+  animation: v164ReactionFloat 3.2s ease both;
+}
+
+.v164-floating-reaction span {
+  font-size: 1.45rem;
+}
+
+@keyframes v164ReactionFloat {
+  0% { opacity: 0; transform: translateX(35px) scale(0.94); }
+  12%, 78% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-22px); }
+}
+
+/* ============================================================
+   41J) Spectator Progress and Waiting Minigame
+   ============================================================ */
+.v164-wait-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.v164-wait-grid > section {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.v164-wait-grid h2 {
+  font-size: 1.2rem;
+}
+
+.v164-spectator-tabs {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.v164-spectator-tabs button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 850;
+}
+
+.v164-spectator-tabs button.active {
+  border-color: rgba(22, 214, 209, 0.65);
+  background: rgba(22, 214, 209, 0.13);
+}
+
+.v164-spectator-card {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.v164-spectator-card span,
+.v164-spectator-card strong,
+.v164-spectator-card p {
+  display: block;
+  margin: 0;
+}
+
+.v164-spectator-card span,
+.v164-spectator-progress small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.v164-spectator-card strong {
+  margin: 4px 0;
+  font-size: 1.08rem;
+}
+
+.v164-spectator-progress {
+  display: grid;
+  gap: 7px;
+}
+
+.v164-wait-score {
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.v164-waiting-field {
+  position: relative;
+  min-height: 245px;
+  overflow: hidden;
+  border: 1px dashed var(--line2);
+  border-radius: 15px;
+  background: radial-gradient(circle at 50% 50%, rgba(124, 92, 255, 0.12), transparent 70%);
+}
+
+.v164-wait-target {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line2);
+  border-radius: 50%;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 1.25rem;
+  animation: v164TargetPop 0.18s ease both;
+}
+
+@keyframes v164TargetPop {
+  from { opacity: 0; transform: scale(0.65); }
+}
+
+/* ============================================================
+   41K) Easy View / Senior-Friendly Presentation
+   ============================================================ */
+.accessibility-btn.active {
+  border-color: rgba(255, 200, 87, 0.7);
+  color: #fff3c9;
+  background: rgba(255, 200, 87, 0.15);
+}
+
+body.easy-view,
+body.senior-mode {
+  --muted: #d2dbea;
+}
+
+body.easy-view .app-shell,
+body.senior-mode .app-shell {
+  width: min(1320px, calc(100% - 18px));
+}
+
+body.easy-view p,
+body.easy-view label,
+body.easy-view small,
+body.senior-mode p,
+body.senior-mode label,
+body.senior-mode small {
+  font-size: max(1rem, 16px);
+  line-height: 1.72;
+}
+
+body.easy-view button,
+body.easy-view input,
+body.easy-view select,
+body.senior-mode button,
+body.senior-mode input,
+body.senior-mode select {
+  min-height: 56px;
+  font-size: 1rem;
+}
+
+body.easy-view .panel,
+body.senior-mode .panel {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+body.high-contrast {
+  --panel: rgba(7, 12, 28, 0.99);
+  --line: rgba(255, 255, 255, 0.3);
+  --line2: rgba(255, 255, 255, 0.48);
+  --muted: #e0e8f7;
+}
+
+body.reduced-motion *,
+body.reduced-motion *::before,
+body.reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* ============================================================
+   41L) Tablet and Phone Layout Repairs
+   ============================================================ */
+@media (max-width: 1020px) {
+  .v164-mode-grid,
+  .v164-home-tools,
+  .v164-home-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .v164-wait-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .v164-wait-grid > section:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .round-panel.v164-responsive-round-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100%, calc(100% - 10px));
+    padding-top: max(6px, env(safe-area-inset-top));
+  }
+
+  .panel {
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .logo-copy strong {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 0.84rem;
+    line-height: 1.15;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .logo-copy small {
+    font-size: 0.72rem;
+  }
+
+  .topbar-actions {
+    gap: 5px;
+  }
+
+  .icon-btn {
+    min-width: 42px;
+    width: 42px;
+    height: 42px;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 11vw, 3.35rem);
+    letter-spacing: -0.055em;
+  }
+
+  h2 {
+    font-size: clamp(1.55rem, 8vw, 2.45rem);
+  }
+
+  .v164-home-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .account-chip-large {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .v164-mode-grid,
+  .v164-home-tools,
+  .v164-home-stats,
+  .v164-settings-grid,
+  .v164-match-search-grid,
+  .v164-wait-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .v164-mode-grid .home-mode-card {
+    min-height: 120px;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+  }
+
+  .v164-mode-grid .home-mode-card > span {
+    grid-row: 1 / 3;
+  }
+
+  .v164-wait-grid > section:last-child {
+    grid-column: auto;
+  }
+
+  .round-panel,
+  .v164-responsive-round-panel {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .round-header {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 5px;
+    scrollbar-width: none;
+  }
+
+  .round-header::-webkit-scrollbar {
+    display: none;
+  }
+
+  .command-banner {
+    padding: 13px;
+  }
+
+  .v164-responsive-microgame {
+    min-height: 330px;
+    max-height: none;
+    overflow: auto;
+  }
+
+  .v164-swipe-card {
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .v164-swipe-copy {
+    min-height: 0;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .v164-swipe-stage .swipe-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .v164-chat-report {
+    grid-template-columns: 1fr;
+  }
+
+  .v164-chat-report .sidebar {
+    max-height: none;
+  }
+
+  .v164-chat-report .player-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 200px;
+  }
+
+  .lobby-ui,
+  .explorer-ui,
+  .browser-window,
+  .mock-window,
+  .phone-shell,
+  .platform-stage,
+  .maze-field,
+  .dodge-field,
+  .shield-field {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .room-choice-grid,
+  .room-lobby-layout,
+  .leaderboard-columns,
+  .account-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .account-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    position: static;
+  }
+
+  .v164-leaderboard-table .leaderboard-row {
+    grid-template-columns: 48px minmax(100px, 1fr) 76px 62px;
+    gap: 7px;
+    padding-inline: 10px;
+    font-size: 0.86rem;
+  }
+
+  .room-versus-hud {
+    overflow-x: auto;
+  }
+
+  .room-hud-ranks {
+    min-width: 520px;
+  }
+
+  .v164-reaction-dock {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .v164-reaction-dock > span {
+    display: none;
+  }
+
+  .v164-reaction-stream {
+    top: auto;
+    right: 8px;
+    bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 430px) {
+  .panel {
+    padding: 13px;
+  }
+
+  .v164-control-pad {
+    grid-template-columns: repeat(5, minmax(42px, 1fr));
+    gap: 5px;
+  }
+
+  .v164-control-pad button {
+    min-height: 54px;
+    padding: 0;
+  }
+
+  .v164-home-stats > div {
+    padding: 11px;
+  }
+
+  .v164-chat-report .player-list {
+    grid-template-columns: 1fr;
+  }
+
+  .v164-swipe-card .profile-photo {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+/* Short landscape phones: keep controls and content reachable. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .app-shell {
+    align-content: start;
+  }
+
+  .topbar {
+    margin-bottom: 7px;
+  }
+
+  .logo-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .v164-responsive-microgame {
+    min-height: 260px;
+    max-height: none;
+  }
+
+  .round-panel.v164-responsive-round-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.38fr);
+  }
+
+  .v164-mobile-controller {
+    position: static;
+  }
+
+  .v164-control-pad button {
+    min-height: 46px;
+  }
+}
+
+
+/* ============================================================
+   V16.5 ADDITIVE STYLES — LIVE ROOMS, REMATCH, BOTS, CLOUD SIGN-IN
+   These rules extend V16.4 without deleting or replacing prior styles.
+   ============================================================ */
+
+/* 01) Larger reactions visible to every room member */
+.v165-reaction-stream {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  top: max(88px, calc(env(safe-area-inset-top) + 70px));
+  z-index: 9999;
+  width: min(330px, calc(100vw - 28px));
+  display: grid;
+  gap: 10px;
+  pointer-events: none;
+}
+.v165-floating-reaction {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 18px;
+  color: var(--text);
+  background: linear-gradient(135deg, rgba(124,92,255,.96), rgba(22,214,209,.90));
+  box-shadow: 0 18px 48px rgba(0,0,0,.42);
+  animation: v165ReactionIn .24s ease both, v165ReactionOut .36s ease 3.2s both;
+}
+.v165-floating-reaction strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; }
+.v165-floating-reaction span { font-size: clamp(1.55rem, 4vw, 2.35rem); font-weight: 1000; }
+@keyframes v165ReactionIn { from { opacity:0; transform:translateX(35px) scale(.86); } to { opacity:1; transform:none; } }
+@keyframes v165ReactionOut { to { opacity:0; transform:translateX(25px) scale(.92); } }
+.v164-reaction-dock button { min-width: 54px; min-height: 48px; font-size: 1.08rem; }
+
+/* 02) Always-readable live standings with human/computer labels */
+.v165-live-board {
+  display: grid;
+  gap: 7px;
+  max-height: min(42vh, 360px);
+  overflow: auto;
+  padding-right: 3px;
+}
+.v165-live-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0,1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(255,255,255,.055);
+}
+.v165-live-row.you { border-color: rgba(22,214,209,.72); background: rgba(22,214,209,.11); }
+.v165-live-row .identity { min-width:0; display:grid; }
+.v165-live-row .identity strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v165-live-row .identity small { color:var(--muted); }
+.v165-kind-pill {
+  display:inline-flex; align-items:center; min-height:24px; padding:0 8px;
+  border:1px solid var(--line); border-radius:999px; color:var(--muted);
+  font-size:.68rem; font-weight:950; text-transform:uppercase;
+}
+.v165-kind-pill.computer { color:#fff1c6; border-color:rgba(255,200,87,.45); }
+.v165-progress-mini { width: 90px; display:grid; gap:3px; text-align:right; }
+.v165-progress-mini div { height:6px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.14); }
+.v165-progress-mini i { display:block; height:100%; background:linear-gradient(90deg,var(--iris),var(--teal)); }
+
+/* 03) Matchmaking countdown and choice dialog */
+.v165-search-countdown {
+  display:grid; place-items:center; gap:4px; margin:12px 0; padding:14px;
+  border:1px solid rgba(255,200,87,.38); border-radius:18px; background:rgba(255,200,87,.08);
+}
+.v165-search-countdown strong { font-size:clamp(1.8rem,5vw,3rem); color:var(--amber); }
+.v165-choice-overlay {
+  position:fixed; inset:0; z-index:10050; display:grid; place-items:center;
+  padding:18px; background:rgba(3,5,12,.82); backdrop-filter:blur(8px);
+}
+.v165-choice-dialog {
+  width:min(680px,100%); max-height:min(88dvh,760px); overflow:auto;
+  padding:clamp(20px,4vw,34px); border:1px solid var(--line2); border-radius:26px;
+  background:var(--panel); box-shadow:var(--shadow);
+}
+.v165-choice-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:18px; }
+.v165-choice-grid button { min-height:112px; display:grid; place-items:center; gap:6px; text-align:center; }
+.v165-choice-grid button span { font-size:2rem; }
+
+/* 04) Rematch voting and automatic room close */
+.v165-rematch-panel {
+  display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:14px;
+  margin-top:16px; padding:15px; border:1px solid var(--line); border-radius:18px;
+  background:rgba(255,255,255,.055);
+}
+.v165-rematch-meter { height:9px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.13); }
+.v165-rematch-meter i { display:block; height:100%; background:linear-gradient(90deg,var(--green),var(--teal)); transition:width .25s; }
+.v165-room-close-countdown { color:var(--amber); font-weight:950; }
+
+/* 05) Restored Fraudster home showcase + compact leaderboard */
+.v165-home-showcase {
+  display:grid; grid-template-columns:minmax(190px,.75fr) minmax(260px,1.25fr);
+  gap:14px; margin:16px 0;
+}
+.v165-fraudster-card {
+  position:relative; min-height:230px; display:grid; place-items:center;
+  overflow:hidden; border:1px solid rgba(255,82,119,.28); border-radius:24px;
+  background:radial-gradient(circle at 50% 42%,rgba(255,82,119,.28),transparent 10rem),rgba(255,255,255,.045);
+}
+.v165-fraudster-card .fraudster-face { transform:scale(.72); }
+.v165-fraudster-card .fraudster-face { animation:bob 2.3s ease-in-out infinite; }
+.v165-pressure-copy { position:absolute; left:16px; right:16px; bottom:14px; display:grid; gap:6px; }
+.v165-home-leaderboard {
+  min-width:0; padding:16px; border:1px solid var(--line); border-radius:24px;
+  background:rgba(255,255,255,.045);
+}
+.v165-home-leaderboard header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.v165-home-rank { display:grid; grid-template-columns:34px minmax(0,1fr) auto; gap:9px; align-items:center; padding:9px 5px; border-bottom:1px solid var(--line); }
+.v165-home-rank:last-child { border-bottom:0; }
+.v165-home-rank strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* 06) Cross-device cloud sign-in */
+.v165-cloud-signin {
+  margin-top:16px; padding:18px; border:1px solid rgba(124,92,255,.42);
+  border-radius:20px; background:rgba(124,92,255,.08);
+}
+.v165-cloud-signin-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+.v165-cloud-status { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px; border-radius:15px; background:rgba(82,224,139,.09); }
+.v165-cloud-status strong { color:#e1ffeb; }
+
+/* 07) Defensive mobile/desktop minigame sizing */
+.v165-round-safe-area { min-width:0; max-width:100%; overflow:auto; overscroll-behavior:contain; }
+.v165-round-safe-area > * { max-width:100%; }
+.v165-round-safe-area canvas,
+.v165-round-safe-area svg,
+.v165-round-safe-area img { max-width:100%; height:auto; }
+.v165-round-safe-area button { touch-action:manipulation; }
+
+@media (max-width: 860px) {
+  .v165-home-showcase { grid-template-columns:1fr; }
+  .v165-fraudster-card { min-height:205px; }
+  .v165-choice-grid { grid-template-columns:1fr; }
+  .v165-cloud-signin-grid { grid-template-columns:1fr; }
+}
+@media (max-width: 620px) {
+  .v165-reaction-stream { top:auto; bottom:max(84px,calc(env(safe-area-inset-bottom) + 72px)); }
+  .v165-floating-reaction { padding:12px 14px; }
+  .v165-live-row { grid-template-columns:28px minmax(0,1fr) auto; }
+  .v165-live-row .v165-kind-pill { grid-column:2; justify-self:start; }
+  .v165-progress-mini { width:72px; }
+  .v165-rematch-panel { grid-template-columns:1fr; }
+  .v165-home-showcase { margin-left:-4px; margin-right:-4px; }
+  .room-versus-hud { max-height:44dvh; overflow:auto; }
+  .v164-reaction-dock { position:sticky; bottom:0; z-index:20; padding:8px; border-radius:16px; background:rgba(7,9,19,.92); }
+}
+
+
+/* ============================================================
+   V16.6 ADDITIVE STYLES — STABILITY, 60-SECOND SEARCH, TEAM CLARITY
+   All V16.5 rules remain above. These styles only refine and extend.
+   ============================================================ */
+
+/* 01) Reliable Easy View / A+ state */
+body.easy-view .panel,
+body.easy-view .account-section,
+body.easy-view .room-versus-hud,
+body.easy-view .v166-choice-dialog { line-height: 1.7; }
+body.easy-view button,
+body.easy-view input,
+body.easy-view select { min-height: 56px; font-size: 1.05rem; }
+body.easy-view .v165-live-row,
+body.easy-view .room-player-card { padding: 14px 16px; }
+.accessibility-btn.active { outline: 3px solid rgba(82,224,139,.7); outline-offset: 3px; }
+
+/* 02) Cloud sign-in is its own clean Account Settings screen */
+.v166-cloud-account-section .v165-cloud-signin { margin-top: 0; }
+.v165-cloud-signin-grid label {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+.v165-cloud-signin-grid label > span { font-weight: 900; color: var(--text); }
+.v165-cloud-signin-grid input { width: 100%; min-width: 0; }
+.v165-cloud-signin .password-input-wrap { width: 100%; }
+.v165-cloud-signin .password-input-wrap input { min-width: 0; }
+
+/* 03) Search countdown and post-search choice modal */
+.v166-choice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: grid;
+  place-items: center;
+  padding: clamp(14px, 3vw, 28px);
+  background: rgba(3,5,12,.86);
+  backdrop-filter: blur(10px);
+}
+.v166-choice-dialog {
+  width: min(780px, 100%);
+  max-height: min(90dvh, 820px);
+  overflow: auto;
+  padding: clamp(22px, 4vw, 38px);
+  border: 1px solid var(--line2);
+  border-radius: 28px;
+  color: var(--text);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.07), transparent 44%),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+.v166-choice-dialog h2 { margin-bottom: 8px; }
+.v166-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+.v166-choice-card {
+  min-height: 150px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  color: var(--text);
+  text-align: center;
+  background: rgba(255,255,255,.065);
+}
+.v166-choice-card:hover { border-color: rgba(22,214,209,.65); background: rgba(22,214,209,.10); }
+.v166-choice-card > span { font-size: 2.25rem; }
+.v166-choice-card strong { font-size: 1.04rem; }
+.v166-choice-card small { color: var(--muted); line-height: 1.4; }
+.v166-choice-card.danger:hover { border-color: rgba(255,82,119,.65); background: rgba(255,82,119,.10); }
+.v166-modal-countdown {
+  margin-top: 16px;
+  padding: 11px 13px;
+  border: 1px solid rgba(255,200,87,.35);
+  border-radius: 14px;
+  color: #fff1c6;
+  background: rgba(255,200,87,.08);
+  font-weight: 900;
+  text-align: center;
+}
+.v166-search-countdown {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255,200,87,.38);
+  border-radius: 18px;
+  background: rgba(255,200,87,.08);
+}
+.v166-search-countdown strong { font-size: clamp(1.7rem, 5vw, 2.65rem); color: var(--amber); }
+.v166-search-countdown .meter { grid-column: 1 / -1; }
+
+/* 04) Team selection and team-colored room cards */
+.v164-team-picker > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+[data-v164-team] { border-width: 2px; }
+[data-v164-team="1"].active,
+[data-v164-team="1"]:hover {
+  border-color: rgba(82,224,139,.85);
+  color: #e7fff0;
+  background: linear-gradient(135deg, rgba(82,224,139,.28), rgba(22,214,209,.14));
+}
+[data-v164-team="2"].active,
+[data-v164-team="2"]:hover {
+  border-color: rgba(255,82,119,.78);
+  color: #ffe8ee;
+  background: linear-gradient(135deg, rgba(255,82,119,.25), rgba(255,158,79,.13));
+}
+.room-player-card.team-one,
+.v165-live-row.team-one,
+.room-final-row.team-one {
+  border-left: 5px solid var(--green);
+  background: linear-gradient(90deg, rgba(82,224,139,.11), rgba(255,255,255,.045));
+}
+.room-player-card.team-two,
+.v165-live-row.team-two,
+.room-final-row.team-two {
+  border-left: 5px solid var(--red);
+  background: linear-gradient(90deg, rgba(255,82,119,.10), rgba(255,255,255,.045));
+}
+.v166-team-scoreboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.v166-team-total {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255,255,255,.055);
+}
+.v166-team-total.team-one { border-color: rgba(82,224,139,.5); }
+.v166-team-total.team-two { border-color: rgba(255,82,119,.48); }
+.v166-team-dot { width: 12px; height: 12px; border-radius: 50%; }
+.team-one .v166-team-dot { background: var(--green); }
+.team-two .v166-team-dot { background: var(--red); }
+
+/* 05) Stable live scoreboard: rows do not jump around every refresh */
+.v165-live-row { transition: background .18s ease, border-color .18s ease; }
+.v166-rank-badge {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.09);
+  font-weight: 1000;
+}
+.v166-score-cell { min-width: 84px; text-align: right; }
+.v166-score-cell strong { display: block; font-variant-numeric: tabular-nums; }
+.v166-score-cell small { color: var(--muted); }
+.v166-score-pulse { animation: v166ScorePulse .34s ease; }
+@keyframes v166ScorePulse { 50% { transform: scale(1.06); color: var(--teal); } }
+
+/* 06) Reaction cooldown is one status, never a toast stack */
+.v166-reaction-status {
+  min-height: 22px;
+  display: block;
+  width: 100%;
+  color: var(--muted);
+  font-size: .76rem;
+  text-align: center;
+}
+.v164-reaction-dock.reaction-cooling button { opacity: .52; cursor: wait; }
+.v165-reaction-stream { width: min(390px, calc(100vw - 28px)); }
+.v165-floating-reaction { padding: 16px 18px; }
+.v165-floating-reaction strong { font-size: 1.08rem; }
+.v165-floating-reaction span { font-size: clamp(1.9rem, 5vw, 3rem); }
+
+/* 07) Restored Fraudster showcase without congestion */
+.v165-fraudster-card {
+  min-height: 260px;
+  grid-template-rows: minmax(145px,1fr) auto;
+  align-items: center;
+  padding: 16px;
+}
+.v165-fraudster-card .fraudster-face {
+  transform: scale(.62);
+  margin: 4px auto 0;
+}
+.v165-pressure-copy {
+  position: static;
+  width: 100%;
+  align-self: end;
+  padding: 4px 2px 0;
+}
+
+/* 08) Results screen and 2v2 recap safety */
+.v166-results-team-summary { margin: 14px 0; }
+.v166-results-status.complete { color: #dffff0; }
+.v166-results-status.waiting { color: #fff1c6; }
+.v166-recap-safe { min-height: 400px; }
+.v166-wait-complete {
+  padding: 18px;
+  border: 1px solid rgba(82,224,139,.4);
+  border-radius: 16px;
+  background: rgba(82,224,139,.08);
+  text-align: center;
+}
+
+/* 09) Bot-fill grace countdown and match-found prompt */
+.v166-bot-start-banner {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0;
+  padding: 13px 15px;
+  border: 1px solid rgba(124,92,255,.42);
+  border-radius: 16px;
+  background: rgba(124,92,255,.09);
+}
+.v166-bot-start-banner strong { color: #e8e1ff; }
+
+/* 10) General defensive form and modal layout */
+.account-section input,
+.account-section select,
+.v166-choice-dialog button { max-width: 100%; }
+.account-content { min-width: 0; }
+.room-host-panel,
+#roomHostPanel { min-width: 0; }
+
+@media (max-width: 860px) {
+  .v166-choice-grid { grid-template-columns: 1fr; }
+  .v166-choice-card { min-height: 112px; grid-template-columns: auto minmax(0,1fr); justify-items: start; text-align: left; }
+  .v166-choice-card > span { grid-row: 1 / 3; }
+  .v166-search-countdown { grid-template-columns: 1fr auto; }
+  .v166-search-countdown > span { grid-column: 1; }
+  .v166-search-countdown strong { grid-column: 2; grid-row: 1 / 3; }
+}
+@media (max-width: 620px) {
+  .v166-team-scoreboard { grid-template-columns: 1fr; }
+  .v165-fraudster-card { min-height: 230px; }
+  .v165-fraudster-card .fraudster-face { transform: scale(.55); }
+  .v165-live-row { grid-template-columns: 32px minmax(0,1fr) auto; }
+  .v165-live-row .v165-kind-pill { display: none; }
+  .v166-score-cell { min-width: 70px; }
+  .v166-choice-dialog { border-radius: 22px; padding: 20px; }
+}
+
+
+/* ============================================================
+   V16.7 ADDITIVE STABILITY STYLES
+   ------------------------------------------------------------
+   Preserves every V16.6 rule and repairs:
+   - cloud sign-in layout and password reveal
+   - matchmaking lobby / countdown layout
+   - search-restart dialog behavior
+   - stable live team totals and score cells
+   - single-human computer results
+   - phone and short-screen overflow
+   ============================================================ */
+
+/* 01) Cross-device cloud account card */
+.v167-cloud-shell {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid rgba(124, 92, 255, 0.52);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(22,214,209,.10), transparent 18rem),
+    rgba(124,92,255,.075);
+}
+.v167-cloud-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.v167-cloud-heading h3 { margin:5px 0 6px; font-size:clamp(1.35rem,3vw,2rem); }
+.v167-cloud-heading p { margin:0; max-width:70ch; }
+.v167-cloud-form { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; align-items:end; }
+.v167-cloud-form label { display:grid; gap:8px; min-width:0; color:var(--text); font-weight:900; }
+.v167-cloud-form input { width:100%; min-width:0; min-height:52px; }
+.v167-cloud-form .password-input-wrap { display:grid; grid-template-columns:minmax(0,1fr) auto; min-width:0; }
+.v167-cloud-form .password-input-wrap input { border-radius:14px 0 0 14px; }
+.v167-cloud-form .password-input-wrap button { min-width:76px; border-radius:0 14px 14px 0; }
+.v167-cloud-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.v167-cloud-error { min-height:1.4em; margin:0; color:#ffb8c7; font-weight:850; overflow-wrap:anywhere; }
+.v167-cloud-help { padding:12px 14px; border-left:4px solid var(--teal); border-radius:12px; background:rgba(22,214,209,.08); }
+
+/* 02) Open lobby and 60-second countdown */
+.room-lobby-layout { align-items:start; }
+.room-player-board, .room-host-panel { min-width:0; }
+.v167-lobby-countdown {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px 16px;
+  align-items:center;
+  margin-bottom:16px;
+  padding:16px;
+  border:1px solid rgba(255,200,87,.46);
+  border-radius:20px;
+  background:linear-gradient(135deg,rgba(255,200,87,.10),rgba(255,82,119,.055));
+}
+.v167-lobby-countdown strong { display:block; font-size:1.18rem; color:#ffe3a0; }
+.v167-lobby-countdown p { margin:3px 0 0; }
+.v167-lobby-countdown > b { min-width:72px; text-align:center; font-size:clamp(1.55rem,4vw,2.6rem); color:var(--amber); font-variant-numeric:tabular-nums; }
+.v167-lobby-countdown .meter { grid-column:1/-1; height:10px; }
+.v167-host-stack { display:grid; gap:14px; }
+.v167-host-stack .room-start-button { width:100%; }
+
+/* 03) Search-complete choice cards */
+.v167-search-overlay { position:fixed; inset:0; z-index:10050; display:grid; place-items:center; padding:18px; background:rgba(2,6,18,.82); backdrop-filter:blur(10px); }
+.v167-search-dialog { width:min(760px,100%); max-height:min(90dvh,760px); overflow:auto; padding:clamp(22px,4vw,36px); border:1px solid var(--line2); border-radius:28px; background:var(--panel); box-shadow:var(--shadow); }
+.v167-search-dialog h2 { margin:8px 0 8px; }
+.v167-search-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:18px; }
+.v167-search-card { min-height:150px; display:grid; place-items:center; align-content:center; gap:8px; padding:18px; border:1px solid var(--line); border-radius:20px; text-align:center; color:var(--text); background:rgba(255,255,255,.065); }
+.v167-search-card > span { font-size:2rem; }
+.v167-search-card strong { font-size:1.05rem; }
+.v167-search-card small { color:var(--muted); line-height:1.35; }
+.v167-search-card.danger { border-color:rgba(255,82,119,.38); }
+.v167-search-card:disabled { opacity:.68; }
+.v167-search-status { min-height:1.4em; margin-top:14px; color:#dffffb; font-weight:850; }
+.v167-auto-close { margin-top:16px; padding:11px 14px; border:1px solid rgba(255,200,87,.35); border-radius:13px; color:#ffe9b5; text-align:center; font-weight:850; }
+
+/* 04) Stable live score and team race */
+.v167-team-totals { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+.v167-team-total { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:9px; min-height:48px; padding:10px 14px; border:1px solid var(--line); border-radius:15px; font-variant-numeric:tabular-nums; }
+.v167-team-total.team-one { border-color:rgba(82,224,139,.65); background:rgba(82,224,139,.08); }
+.v167-team-total.team-two { border-color:rgba(255,82,119,.65); background:rgba(255,82,119,.08); }
+.v167-team-total i { width:10px; height:10px; border-radius:50%; background:currentColor; }
+.v167-team-total.team-one i { color:var(--green); }
+.v167-team-total.team-two i { color:var(--red); }
+.v167-team-total b, .v166-score-cell strong { min-width:72px; text-align:right; font-variant-numeric:tabular-nums; }
+.v165-live-row { contain:layout paint; }
+.v165-live-row.team-one { border-left:4px solid var(--green); }
+.v165-live-row.team-two { border-left:4px solid var(--red); }
+.v167-score-sync-note { margin:8px 0 0; color:var(--muted); font-size:.78rem; }
+
+/* 05) Results behavior for one human + computers */
+.v167-solo-bot-note { padding:12px 14px; border:1px solid rgba(22,214,209,.30); border-radius:14px; background:rgba(22,214,209,.07); color:#ddfffc; }
+.v167-hidden { display:none !important; }
+
+/* 06) Phone and short-screen protection */
+@media (max-width: 900px) {
+  .v167-cloud-form { grid-template-columns:1fr; }
+  .v167-search-options { grid-template-columns:1fr; }
+  .v167-search-card { min-height:108px; grid-template-columns:auto minmax(0,1fr); place-items:center start; text-align:left; }
+  .v167-search-card > span { grid-row:1/3; }
+}
+@media (max-width: 620px) {
+  .v167-cloud-shell { border-radius:18px; padding:15px; }
+  .v167-cloud-heading { display:grid; }
+  .v167-cloud-actions .btn { width:100%; }
+  .v167-lobby-countdown { grid-template-columns:minmax(0,1fr) auto; padding:13px; }
+  .v167-team-totals { grid-template-columns:1fr; }
+  .v167-search-overlay { padding:0; align-items:end; }
+  .v167-search-dialog { width:100%; max-height:92dvh; border-radius:24px 24px 0 0; padding:20px 16px calc(20px + env(safe-area-inset-bottom)); }
+}
+
+/* ============================================================
+   V16.8 ADDITIVE STYLES — ROOM RECOVERY + FINAL RESULTS
+   ============================================================ */
+
+/* 01) Previous-room choice is explicit rather than automatic. */
+.v168-room-recovery-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10120;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(2, 6, 18, 0.84);
+  backdrop-filter: blur(12px);
+}
+.v168-room-recovery-card {
+  width: min(720px, 100%);
+  max-height: min(90dvh, 760px);
+  overflow: auto;
+  padding: clamp(22px, 4vw, 36px);
+  border: 1px solid var(--line2);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 42%),
+    var(--panel);
+  box-shadow: var(--shadow);
+}
+.v168-room-recovery-card h2 { margin: 8px 0 10px; }
+.v168-room-recovery-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+.v168-room-recovery-stats > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255,255,255,.055);
+}
+.v168-room-recovery-stats span,
+.v168-room-recovery-stats strong { display: block; }
+.v168-room-recovery-stats span {
+  color: var(--muted);
+  font-size: .76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .055em;
+}
+.v168-room-recovery-stats strong {
+  margin-top: 4px;
+  color: var(--teal);
+  font-size: 1.12rem;
+  overflow-wrap: anywhere;
+}
+.v168-room-recovery-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+.v168-room-recovery-actions .btn { width: 100%; min-height: 58px; }
+
+/* 02) Final result screens stop presenting a waiting activity. */
+.v168-finished-hidden { display: none !important; }
+.v166-results-status.complete,
+#roomResultStatus.complete {
+  color: #dffff0;
+  font-weight: 900;
+}
+.room-results-panel:has(#roomResultStatus.complete) .v164-wait-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+}
+.room-results-panel:has(#roomResultStatus.complete) #roomFinalStandings {
+  min-height: 0;
+}
+
+/* 03) Stable winner state. */
+.room-results-panel:has(#roomResultStatus.complete) #roomResultTitle {
+  color: var(--text);
+}
+.room-results-panel:has(#roomResultStatus.complete) .room-final-self {
+  border-color: rgba(82,224,139,.55);
+  background:
+    linear-gradient(135deg, rgba(82,224,139,.10), rgba(22,214,209,.08)),
+    rgba(255,255,255,.035);
+}
+
+@media (max-width: 780px) {
+  .v168-room-recovery-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .v168-room-recovery-actions { grid-template-columns: 1fr; }
+  .room-results-panel:has(#roomResultStatus.complete) .v164-wait-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  .v168-room-recovery-overlay { padding: 0; align-items: end; }
+  .v168-room-recovery-card {
+    width: 100%;
+    max-height: 93dvh;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    border-radius: 24px 24px 0 0;
+  }
+  .v168-room-recovery-stats { grid-template-columns: 1fr 1fr; }
+}
+
+
+/* ============================================================
+   50) V16.9 ONLINE CONSISTENCY + SWIPE LAYOUT REPAIR
+   ------------------------------------------------------------
+   ADDITIVE: V16.8 styles remain above.
+   ============================================================ */
+
+/* The romance card also carries the older `.profile-card` class used by
+   Account Settings. Reset that inherited three-column grid explicitly so
+   long names and descriptions cannot collapse into one-letter columns. */
+.v164-swipe-card.profile-card,
+.v164-swipe-card.buyer-card {
+  width: min(680px, 100%);
+  min-width: 0;
+  max-width: 100%;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-auto-flow: row;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-rows: auto;
+  align-items: stretch;
+  justify-items: stretch;
+  contain: layout paint;
+}
+
+.v164-swipe-card.profile-card > *,
+.v164-swipe-card.buyer-card > * {
+  min-width: 0;
+  width: 100%;
+  grid-column: 1 / -1;
+}
+
+.v164-swipe-card .profile-top {
+  grid-template-columns: 72px minmax(0, 1fr) !important;
+  width: 100%;
+  min-width: 0;
+}
+
+.v164-swipe-card .profile-photo {
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  display: grid;
+  place-items: center;
+  position: static;
+}
+
+.v164-swipe-card .profile-top > div:last-child,
+.v164-swipe-card .profile-top h3,
+.v164-swipe-card .profile-top p,
+.v164-swipe-copy {
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.v164-swipe-card .profile-top h3 {
+  font-size: clamp(1.2rem, 3vw, 1.65rem);
+  line-height: 1.15;
+}
+
+.v164-swipe-copy {
+  display: block;
+  min-height: 110px;
+}
+
+/* Rematch counts and live totals retain fixed space instead of shifting. */
+#v165RematchCount,
+.v167-team-total b,
+.v165-live-row .v165-progress-mini > strong,
+.room-final-row > b {
+  font-variant-numeric: tabular-nums;
+}
+
+.v165-rematch-panel.v169-rematch-starting {
+  border-color: rgba(22, 214, 209, 0.62);
+  background: rgba(22, 214, 209, 0.09);
+}
+
+.v169-online-error {
+  border: 1px solid rgba(255, 82, 119, 0.45);
+  border-radius: 14px;
+  padding: 12px;
+  color: #ffd8e1;
+  background: rgba(255, 82, 119, 0.09);
+}
+
+@media (max-width: 700px) {
+  .v164-swipe-card.profile-card,
+  .v164-swipe-card.buyer-card {
+    width: 100%;
+    padding: 15px;
+    gap: 14px;
+    contain: none;
+  }
+
+  .v164-swipe-card .profile-top {
+    grid-template-columns: 56px minmax(0, 1fr) !important;
+    gap: 11px;
+  }
+
+  .v164-swipe-card .profile-photo {
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+  }
+
+  .v164-swipe-copy {
+    min-height: 0;
+    padding: 14px;
+  }
+}
+
+
+/* ============================================================
+   V16.10 ADDITIVE POLISH — REMATCH + RESULT COUNTDOWN STATUS
+   ============================================================ */
+.v165-rematch-panel.v169-rematch-starting {
+  border-color: rgba(22, 214, 209, .72);
+  box-shadow: 0 0 0 1px rgba(22, 214, 209, .22) inset;
+}
+.v165-room-close-countdown {
+  font-variant-numeric: tabular-nums;
+  min-height: 1.5em;
+}
+#v165RematchCount,
+#v165RoomCloseSeconds {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   V16.11 ADDITIVE STYLES — RELIABLE REMATCH + FINAL WINNER
+   ------------------------------------------------------------
+   Keeps every V16.10 style and adds clear final-result accents plus
+   visible rematch button states. No existing game layout is removed.
+   ============================================================ */
+
+.room-results-panel.winner-green {
+  border-color: rgba(82, 224, 139, 0.72);
+  box-shadow: 0 24px 80px rgba(31, 189, 109, 0.16);
+}
+
+.room-results-panel.winner-red {
+  border-color: rgba(255, 82, 119, 0.72);
+  box-shadow: 0 24px 80px rgba(255, 82, 119, 0.15);
+}
+
+.room-results-panel.winner-solo {
+  border-color: rgba(22, 214, 209, 0.72);
+  box-shadow: 0 24px 80px rgba(22, 214, 209, 0.14);
+}
+
+.room-results-panel.winner-tie {
+  border-color: rgba(255, 200, 87, 0.72);
+  box-shadow: 0 24px 80px rgba(255, 200, 87, 0.14);
+}
+
+.room-results-panel.winner-green #roomResultTitle {
+  color: #82f3b0;
+}
+
+.room-results-panel.winner-red #roomResultTitle {
+  color: #ff8aa4;
+}
+
+.room-results-panel.winner-tie #roomResultTitle {
+  color: #ffe09b;
+}
+
+#v165RematchBtn {
+  min-width: 190px;
+  transition:
+    transform 0.16s ease,
+    filter 0.16s ease,
+    opacity 0.16s ease;
+}
+
+#v165RematchBtn:not(:disabled):hover {
+  transform: translateY(-2px) scale(1.01);
+}
+
+#v165RematchBtn:disabled {
+  opacity: 0.8;
+  cursor: wait;
+}
+
+.v169-rematch-starting #v165RematchBtn {
+  animation: v171-rematch-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes v171-rematch-pulse {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.24); }
+}
+
+@media (max-width: 680px) {
+  .v165-rematch-panel {
+    align-items: stretch;
+  }
+
+  #v165RematchBtn {
+    width: 100%;
+    min-width: 0;
+  }
+}
