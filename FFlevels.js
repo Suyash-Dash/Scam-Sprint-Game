@@ -9,7 +9,7 @@ window.FF_SCAM_ARCADE_DATA = {
     "tagline": "By Suyash Dash",
     "totalPlayableRounds": 657,
     "totalMechanics": 95,
-    "arcadeRoundsBeforeBoss": 34,
+    "arcadeRoundsBeforeBoss": 18,
     "version": "16.0"
   },
   "rounds": [
