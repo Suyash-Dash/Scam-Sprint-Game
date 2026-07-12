@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- Scam Sprint V16.3: FraudFront Ultimate Arcade by Suyash Dash -->
+  <!-- Scam Sprint V16.11: FraudFront Ultimate Arcade by Suyash Dash -->
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#070913" />
@@ -25,16 +25,17 @@
   </main>
 
   <!-- ============================================================
-       V16.3 No-Email Online Play + Room Multiplayer Configuration
-       WHAT CHANGED IN V16.3:
-       - Players use the profile name + local profile password already in the game.
-       - Supabase signs them in anonymously behind the scenes—no email form.
-       - Create/join multiplayer rooms with a short six-character code.
+       V16.11 Reliable Rematches + Canonical Winner Configuration
+       V16.6 ADDITIONS:
+       - Existing profile name and password remain the only player-facing account details.
+       - Private six-character rooms support individual races and 2v2 teams.
+       - Quick Match can find solo opponents or four players for 2v2.
+       - Arcade and Endless worldwide rankings remain separate.
 
        SETUP:
        1) Create a free Supabase project.
        2) Turn ON "Allow new users to sign up" and "Allow anonymous sign-ins".
-       3) Run GLOBAL_SETUP.sql from this V16.3 package once.
+       3) Run GLOBAL_SETUP.sql from this V16.11 package once.
        4) Paste ONLY the Project URL and public publishable/anonymous key below.
        NEVER paste a secret or service-role key into browser code.
        Leave blank to keep private password-protected local profiles only.
@@ -49,20 +50,80 @@
       matchRpc: "submit_match_result",
       lobbyChannel: "ff-global-lobby",
 
-      // V16.3 room-code multiplayer RPCs. Keep these names unchanged
+      // V16.11 room, team, ranking, reaction, bot, rematch, matchmaking, and cloud-account RPCs. Keep these names unchanged
       // unless you intentionally rename the SQL functions.
       createRoomRpc: "ff_create_room",
       joinRoomRpc: "ff_join_room",
       startRoomRpc: "ff_start_room",
       updateRoomRpc: "ff_update_room_progress",
       heartbeatRoomRpc: "ff_room_heartbeat",
-      leaveRoomRpc: "ff_leave_room"
+      leaveRoomRpc: "ff_leave_room",
+
+      // V16.4 separate solo leaderboards
+      submitModeRpc: "submit_mode_score",
+      readModeRpc: "get_mode_leaderboard",
+
+      // V16.4 room settings and 2v2 teams
+      createRoomV164Rpc: "ff_create_room_v164",
+      joinRoomV164Rpc: "ff_join_room_v164",
+      setTeamRpc: "ff_set_room_team",
+
+      // V16.4 free matchmaking queues
+      matchmakingJoinRpc: "ff_matchmaking_join",
+      matchmakingStatusRpc: "ff_matchmaking_status",
+      matchmakingCancelRpc: "ff_matchmaking_cancel",
+
+      // V16.6 reliable live-room updates
+      startRoomV165Rpc: "ff_start_room_v165",
+      updateRoomV165Rpc: "ff_update_room_progress_v165",
+      sendReactionRpc: "ff_send_room_reaction",
+      rematchVoteRpc: "ff_vote_room_rematch",
+      rematchStatusRpc: "ff_room_rematch_status",
+      prepareRematchRpc: "ff_prepare_room_rematch",
+
+      // V16.6 open matchmaking + computer-player fallback
+      matchmakingJoinV165Rpc: "ff_matchmaking_join_v165",
+      matchmakingCancelV165Rpc: "ff_matchmaking_cancel_v165",
+      extendSearchRpc: "ff_extend_matchmaking_room",
+      fillBotsRpc: "ff_fill_room_with_bots",
+      updateBotRpc: "ff_update_room_bot",
+
+      // V16.6 username/password cloud backup without email
+      cloudCreateRpc: "ff_cloud_account_create",
+      cloudLoginRpc: "ff_cloud_account_login",
+      cloudSaveRpc: "ff_cloud_account_save",
+      cloudLogoutRpc: "ff_cloud_account_logout",
+
+      // V16.7 server-authoritative computer progress and finish detection
+      syncBotsV167Rpc: "ff_sync_room_bots_v167",
+
+      // V16.8 canonical room state, immediate leave reconciliation, and optional rejoin
+      roomSnapshotV168Rpc: "ff_room_snapshot_v168",
+      leaveRoomV168Rpc: "ff_leave_room_v168",
+      recentRoomV168Rpc: "ff_find_recent_room_v168",
+      rejoinRoomV168Rpc: "ff_rejoin_room_v168",
+
+      // V16.9 native-Promise RPC bridge, canonical score snapshots, and atomic rematches
+      roomSnapshotV169Rpc: "ff_room_snapshot_v169",
+      updateRoomV169Rpc: "ff_update_room_progress_v169",
+      rematchVoteV169Rpc: "ff_vote_room_rematch_v169",
+
+      // V16.10 fair computer scoring, active-room presence, and shared result closing
+      roomSnapshotV170Rpc: "ff_room_snapshot_v170",
+      updateRoomV170Rpc: "ff_update_room_progress_v170",
+      rematchVoteV170Rpc: "ff_vote_room_rematch_v170",
+      syncBotsV170Rpc: "ff_sync_room_bots_v170",
+
+      // V16.11 server-authoritative rematch votes and canonical solo/team winners
+      roomSnapshotV171Rpc: "ff_room_snapshot_v171",
+      updateRoomV171Rpc: "ff_update_room_progress_v171",
+      rematchVoteV171Rpc: "ff_vote_room_rematch_v171"
     };
     // Backward-compatible name retained for the original V16 leaderboard code.
     window.FF_LEADERBOARD_CONFIG = window.FF_ONLINE_CONFIG;
   </script>
 
-  <!-- Supabase browser client is used only after the two public values above are configured. No email is collected by V16.3. -->
+  <!-- Supabase browser client is used only after the two public values above are configured. Player-facing online play uses the existing gamer tag; no free-text chat is provided. -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 
   <!-- Core 657-round data bank and complete game engine -->
