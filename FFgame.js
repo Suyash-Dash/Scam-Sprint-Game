@@ -1,5 +1,5 @@
 /* ============================================================
-   Scam Sprint Ultimate Arcade V16.1 — FFgame.js
+   Scam Sprint Ultimate Arcade V16.6 — FFgame.js
    Purpose: complete preserved game engine plus additive mobile, profile, save, demo,
    leaderboard, ready-gate, accessibility, and minigame reliability upgrades.
    ============================================================ */
@@ -3680,7 +3680,7 @@
      - tap alternatives for drag-only minigames
      ============================================================ */
 
-  DATA.site.version = "16.2";
+  DATA.site.version = "16.5";
 
   const V16_STORAGE = {
     profiles: "ffV16Profiles",
@@ -7150,6 +7150,4476 @@
     state.multiplayer = null;
   }
 
+
+
+  /* ============================================================
+     18E) V16.4 POLISH + ACCESSIBILITY + EXPANDED MULTIPLAYER
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — the complete V16.3 engine remains above.
+
+     V16.4 adds:
+     - Responsive phone/computer minigame layouts
+     - Reliable universal touch + tilt controls for movement games
+     - Cleaner player-facing copy (technical setup notes stay in SETUP_GUIDE.txt)
+     - Truly randomized game-chat scam-message position
+     - 18-round Arcade + boss and a separate Endless mode
+     - Separate Regular and Endless local/worldwide leaderboards
+     - Host-selectable online reading pace and live-score visibility
+     - Live room scores, safe spectator progress, and a waiting minigame
+     - Preset-only reactions (no free-text chat)
+     - Username safety filtering in browser and database
+     - Solo Quick Match, private 2v2 rooms, and 2v2 matchmaking
+     - One-tap Easy View for seniors and players who prefer larger UI
+     ============================================================ */
+
+  const V164_REGULAR_ROUNDS = 18;
+  const V164_ENDLESS_BATCH = 8;
+  const V164_ALLOWED_REACTIONS = new Map([
+    ["gg", "GG"], ["lol", "LOL"], ["think", "🤔"], ["laugh", "😂"],
+    ["wow", "😮"], ["clap", "👏"], ["fire", "🔥"], ["shield", "🛡️"]
+  ]);
+  const V164_MOVEMENT_TYPES = new Set([
+    "platformHints", "hintPlatformer", "starBridgeRun", "fallingDodge",
+    "textDodge", "scamRainDodge", "spywareMaze", "browserRedirectMaze",
+    "linkBridge", "packetPaddle", "shieldBlock", "shieldCursor",
+    "messageShieldRun", "inboxShooter", "downloadShooter", "scamWhack",
+    "fakeAdClean", "virusDownload", "rushStopDownload", "tabStopDownload"
+  ]);
+  const V164_VERTICAL_MOVEMENT_TYPES = new Set([
+    "spywareMaze", "browserRedirectMaze", "platformHints", "hintPlatformer",
+    "starBridgeRun", "linkBridge"
+  ]);
+  const V164_NAME_BLOCKLIST = [
+    "fuck", "shit", "bitch", "cunt", "dick", "pussy", "asshole", "nigger",
+    "nigga", "faggot", "retard", "whore", "slut", "kike", "chink", "spic",
+    "rape", "porn", "nazi", "hitler", "kkk", "suicide", "kill yourself",
+    "kys", "admin", "moderator", "fraudfront official", "scam sprint official"
+  ];
+
+  const v163Topbar = topbar;
+  const v163WireTopbar = wireTopbar;
+  const v163GetProfiles = v16GetProfiles;
+  const v163CreateProfile = v16CreateProfile;
+  const v163SanitizeUsername = v16SanitizeUsername;
+  const v163CloudUpsertAlias = v16CloudUpsertAlias;
+  const v163GetGlobalConfig = v16GetGlobalConfig;
+  const v163FetchGlobalLeaderboard = v16FetchGlobalLeaderboard;
+  const v163SecondsFor = secondsFor;
+  const v163RenderRound = renderRound;
+  const v163ShowResults = showResults;
+  const v163RecordResult = v16RecordResult;
+  const v163DrawSwipe = drawSwipe;
+  const v163WireSwipe = wireSwipe;
+  const v163DrawLobbyV13 = drawLobbyV13;
+  const v163WireLobbyV13 = wireLobbyV13;
+  const v163AccountNav = v16AccountNav;
+  const v163AccountSectionHtml = v16AccountSectionHtml;
+  const v163ShowOnlineSetupHelp = showOnlineSetupHelp;
+  const v163ClearRoomTimers = v162ClearRoomTimers;
+  const v163DisconnectRoomChannel = v162DisconnectRoomChannel;
+  const v163StartRoomMatch = v162StartRoomMatch;
+  const v163BeginRoomMatch = v162BeginRoomMatch;
+  const v163ShowRoomResults = v162ShowRoomResults;
+  const v163RenderRoomResults = v162RenderRoomResults;
+  const v163ExitMatch = v16ExitMatch;
+
+  /* ============================================================
+     V16.4A) Persistent Accessibility Preferences
+     ============================================================ */
+  const V164_ACCESS_KEY = "ffV164Accessibility";
+
+  function v164AccessibilitySettings() {
+    return {
+      easyView: false,
+      reducedMotion: false,
+      highContrast: false,
+      ...(v16ReadJson(V164_ACCESS_KEY, {}) || {})
+    };
+  }
+
+  function v164ApplyAccessibility() {
+    const settings = v164AccessibilitySettings();
+    document.body.classList.toggle("easy-view", Boolean(settings.easyView));
+    document.body.classList.toggle("reduced-motion", Boolean(settings.reducedMotion));
+    document.body.classList.toggle("high-contrast", Boolean(settings.highContrast));
+    const button = $("#accessibilityBtn");
+    if (button) {
+      button.classList.toggle("active", Boolean(settings.easyView));
+      button.setAttribute("aria-pressed", settings.easyView ? "true" : "false");
+      button.title = settings.easyView ? "Turn Easy View off" : "Turn Easy View on";
+    }
+  }
+
+  function v164ToggleEasyView() {
+    const settings = v164AccessibilitySettings();
+    settings.easyView = !settings.easyView;
+    if (settings.easyView) settings.reducedMotion = true;
+    v16WriteJson(V164_ACCESS_KEY, settings);
+    v164ApplyAccessibility();
+    toast(settings.easyView ? "Easy View on: larger text, larger buttons, and calmer motion." : "Easy View off.");
+  }
+
+  topbar = function v164Override_topbar() {
+    return `
+      <div class="topbar">
+        <div class="topbar-left">
+          <div class="logo-mark">FF</div>
+          <div class="logo-copy"><strong>${esc(DATA.site.gameName)}</strong><small>${esc(DATA.site.tagline)}</small></div>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn accessibility-btn" id="accessibilityBtn" type="button" aria-pressed="false" title="Toggle Easy View">A+</button>
+          <button class="icon-btn ${state.soundOn ? "sound-on" : "sound-off"}" id="soundBtn" title="Toggle sound">${state.soundOn ? "🔊" : "🔇"}</button>
+          <button class="icon-btn" id="homeBtn" title="Home">⌂</button>
+        </div>
+      </div>`;
+  }
+
+  wireTopbar = function v164Override_wireTopbar() {
+    on($("#homeBtn"), "click", showHome);
+    on($("#soundBtn"), "click", toggleSound);
+    on($("#accessibilityBtn"), "click", v164ToggleEasyView);
+    updateSoundButton();
+    v164ApplyAccessibility();
+  }
+
+  /* ============================================================
+     V16.4B) Profile Defaults + Safe Username Filtering
+     ============================================================ */
+  function v164ProfileWithDefaults(profile) {
+    return {
+      ...profile,
+      regularBestScore: Number(profile.regularBestScore ?? profile.bestScore ?? 0),
+      regularWins: Number(profile.regularWins ?? profile.wins ?? 0),
+      regularRuns: Number(profile.regularRuns ?? profile.runs ?? 0),
+      endlessBestScore: Number(profile.endlessBestScore || 0),
+      endlessBestRounds: Number(profile.endlessBestRounds || 0),
+      endlessRuns: Number(profile.endlessRuns || 0)
+    };
+  }
+
+  v16GetProfiles = function v164Override_v16GetProfiles() {
+    const original = v163GetProfiles();
+    let changed = false;
+    const upgraded = original.map((profile) => {
+      const next = v164ProfileWithDefaults(profile);
+      if (JSON.stringify(next) !== JSON.stringify(profile)) changed = true;
+      return next;
+    });
+    if (changed) v16SaveProfiles(upgraded);
+    return upgraded;
+  }
+
+  function v164NameFingerprint(value) {
+    return String(value || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[0]/g, "o").replace(/[1!|]/g, "i").replace(/[3]/g, "e")
+      .replace(/[4@]/g, "a").replace(/[5$]/g, "s").replace(/[7+]/g, "t")
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function v164UsernameIssue(value) {
+    const clean = v163SanitizeUsername(value);
+    if (clean.length < 2) return "Use a gamer tag with at least 2 characters.";
+    if (clean.length > 18) return "Gamer tags may use at most 18 characters.";
+    const fingerprint = v164NameFingerprint(clean);
+    const collapsed = fingerprint.replace(/\s+/g, "");
+    const blocked = V164_NAME_BLOCKLIST.some((term) => {
+      const needle = v164NameFingerprint(term);
+      return fingerprint.includes(needle) || collapsed.includes(needle.replace(/\s+/g, ""));
+    });
+    if (blocked) return "Choose a respectful gamer tag without profanity, slurs, threats, or staff impersonation.";
+    if (/^(player|guest|user)\s*\d*$/i.test(clean)) return "Choose a more distinctive gamer tag.";
+    return "";
+  }
+
+  v16SanitizeUsername = function v164Override_v16SanitizeUsername(value) {
+    const clean = v163SanitizeUsername(value);
+    return v164UsernameIssue(clean) ? "" : clean;
+  }
+
+  v16CreateProfile = async function v164Override_v16CreateProfile(username, password) {
+    const clean = v163SanitizeUsername(username);
+    const issue = v164UsernameIssue(clean);
+    if (issue) return { ok: false, error: issue };
+    return v163CreateProfile(clean, password);
+  }
+
+  v16CloudUpsertAlias = async function v164Override_v16CloudUpsertAlias(username) {
+    const clean = v163SanitizeUsername(username);
+    const issue = v164UsernameIssue(clean);
+    if (issue) throw new Error(issue);
+    return v163CloudUpsertAlias(clean);
+  }
+
+  /* ============================================================
+     V16.4C) Expanded Supabase Configuration
+     ============================================================ */
+  v16GetGlobalConfig = function v164Override_v16GetGlobalConfig() {
+    const base = v163GetGlobalConfig();
+    const config = window.FF_ONLINE_CONFIG || window.FF_LEADERBOARD_CONFIG || {};
+    return {
+      ...base,
+      submitModeRpc: String(config.submitModeRpc || "submit_mode_score"),
+      readModeRpc: String(config.readModeRpc || "get_mode_leaderboard"),
+      createRoomV164Rpc: String(config.createRoomV164Rpc || "ff_create_room_v164"),
+      joinRoomV164Rpc: String(config.joinRoomV164Rpc || "ff_join_room_v164"),
+      setTeamRpc: String(config.setTeamRpc || "ff_set_room_team"),
+      matchmakingJoinRpc: String(config.matchmakingJoinRpc || "ff_matchmaking_join"),
+      matchmakingStatusRpc: String(config.matchmakingStatusRpc || "ff_matchmaking_status"),
+      matchmakingCancelRpc: String(config.matchmakingCancelRpc || "ff_matchmaking_cancel")
+    };
+  }
+
+  async function v164FetchModeLeaderboard(mode = "regular", limit = 50) {
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    if (!client) throw new Error("Worldwide rankings are unavailable right now.");
+    const { data, error } = await client.rpc(config.readModeRpc, {
+      p_mode: mode === "endless" ? "endless" : "regular",
+      p_limit: clamp(Number(limit || 50), 1, 100)
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async function v164SubmitModeScore(profile, mode, score, rounds, won) {
+    if (!profile?.globalShare || !v16GlobalConfigured() || !V16_ONLINE.user) return false;
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    const { error } = await client.rpc(config.submitModeRpc, {
+      p_username: profile.username,
+      p_mode: mode === "endless" ? "endless" : "regular",
+      p_score: clamp(Number(score || 0), 0, 1000000),
+      p_best_streak: clamp(Number(state.bestStreak || 0), 0, 10000),
+      p_rounds: clamp(Number(rounds || 0), 0, 100000),
+      p_won: Boolean(won)
+    });
+    if (error) throw error;
+    return true;
+  }
+
+  /* V16.4 overrides the V16.3 “publish saved best” helper so both
+     solo boards sync immediately without mixing Demo or online scores. */
+  v163PublishSavedBest = async function v164PublishSavedBest(profile = v16GetActiveProfile()) {
+    await v162EnsureAnonymousOnlineSession();
+    await v16CloudUpsertAlias(profile.username);
+    const publishable = { ...profile, globalShare: true };
+    const regularScore = Number(profile.regularBestScore ?? profile.bestScore ?? 0);
+    const endlessScore = Number(profile.endlessBestScore || 0);
+    if (regularScore > 0) {
+      await v164SubmitModeScore(
+        publishable,
+        "regular",
+        regularScore,
+        Number(profile.regularRuns || profile.runs || 0),
+        Number(profile.regularWins ?? profile.wins ?? 0) > 0
+      );
+    }
+    if (endlessScore > 0) {
+      await v164SubmitModeScore(
+        publishable,
+        "endless",
+        endlessScore,
+        Number(profile.endlessBestRounds || 0),
+        false
+      );
+    }
+    v16UpdateProfile(profile.id, {
+      lastGlobalSyncScore: regularScore,
+      lastEndlessGlobalSyncScore: endlessScore,
+      lastGlobalSyncAt: v16NowIso()
+    });
+    return Math.max(regularScore, endlessScore);
+  };
+
+  /* ============================================================
+     V16.4D) Cleaner Home + 18-Round Arcade + Endless Mode
+     ============================================================ */
+  function v164ModeBest(profile, mode) {
+    return mode === "endless" ? Number(profile.endlessBestScore || 0) : Number(profile.regularBestScore ?? profile.bestScore ?? 0);
+  }
+
+  showHome = function v164Override_showHome() {
+    clearLoops();
+    v16InstallRuntimeOnce();
+    v164ApplyAccessibility();
+    document.body.classList.remove("game-active");
+    const profile = v16GetActiveProfile();
+    const progress = profile.progress;
+    const protectedProfile = v16ProfileHasPassword(profile);
+    const unlocked = v16IsProfileUnlocked(profile.id);
+    render(`
+      <section class="screen v164-home-screen">${topbar()}<div class="panel v164-home-panel">
+        <header class="v164-home-hero">
+          <div>
+            <span class="eyebrow">FraudFront awareness arcade</span>
+            <h1><span class="home-title-accent">Scam Sprint</span><br>Learn fast. Spot scams. Protect people.</h1>
+            <p>Choose a focused arcade run, survive Endless Mode, practice any of 657 games, or compete online with friends and worldwide players.</p>
+          </div>
+          <button class="profile-chip account-chip-large" id="profileBtn">${unlocked ? "🔓" : "🔒"} ${esc(profile.username)}</button>
+        </header>
+
+        ${!protectedProfile ? `<div class="home-security-alert"><strong>🔐 Protect this profile first</strong><span>Create one password before saving progress or playing online.</span><button class="btn btn-primary btn-small" id="secureProfileBtn">Set Password</button></div>` : ""}
+
+        <div class="v164-mode-grid">
+          <button class="home-mode-card primary" id="startBtn"><span>🎮</span><strong>Arcade Run</strong><small>${V164_REGULAR_ROUNDS} varied rounds + final boss</small></button>
+          <button class="home-mode-card endless" id="endlessBtn"><span>♾️</span><strong>Endless Mode</strong><small>Keep playing until Trust reaches zero</small></button>
+          <button class="home-mode-card versus" id="multiplayerBtn"><span>🌎</span><strong>Online Play</strong><small>Room codes, Quick Match, and 2v2 teams</small></button>
+          <button class="home-mode-card demo" id="demoBtn"><span>⚡</span><strong>5-Game Demo</strong><small>A short guided sampler</small></button>
+        </div>
+
+        ${progress ? `<button class="v164-resume-bar" id="resumeBtn"><span>▶</span><div><strong>Continue saved ${progress.runMode === "endless" ? "Endless run" : progress.runMode === "demo" ? "Demo" : "Arcade run"}</strong><small>Saved ${progress.savedAt ? new Date(progress.savedAt).toLocaleString() : "recently"}</small></div></button>` : ""}
+
+        <div class="v164-home-tools">
+          <button class="btn btn-secondary" id="libraryBtn">🗂️ Game Library</button>
+          <button class="btn btn-secondary" id="leaderboardBtn">🏆 Leaderboards</button>
+          <button class="btn btn-secondary" id="howBtn">❓ How to Play</button>
+          <button class="btn btn-secondary" id="accountBtn">⚙️ Account Settings</button>
+        </div>
+
+        <div class="v164-home-stats">
+          <div><strong>${DATA.site.totalPlayableRounds}</strong><span>games preserved</span></div>
+          <div><strong>${Number(profile.regularBestScore || 0).toLocaleString()}</strong><span>Arcade best</span></div>
+          <div><strong>${Number(profile.endlessBestScore || 0).toLocaleString()}</strong><span>Endless best</span></div>
+          <div><strong>${Number(profile.vsWins || 0)}</strong><span>online wins</span></div>
+        </div>
+      </div></section>`);
+    wireTopbar();
+    on($("#secureProfileBtn"), "click", () => showProfileManager("security"));
+    on($("#profileBtn"), "click", () => showProfileManager("profiles"));
+    on($("#accountBtn"), "click", () => showProfileManager("profiles"));
+    on($("#startBtn"), "click", () => v16RequireUnlocked(showSetup));
+    on($("#endlessBtn"), "click", () => v16RequireUnlocked(showEndlessSetup));
+    on($("#multiplayerBtn"), "click", () => v16RequireUnlocked(showMultiplayerLobby));
+    on($("#demoBtn"), "click", () => v16RequireUnlocked(showDemoMode));
+    on($("#resumeBtn"), "click", () => v16RequireUnlocked(v16ResumeProgress));
+    on($("#libraryBtn"), "click", showLibrary);
+    on($("#leaderboardBtn"), "click", () => showLeaderboard("regular"));
+    on($("#howBtn"), "click", showHow);
+  }
+
+  function v164SetupBody(mode) {
+    const endless = mode === "endless";
+    return `
+      <section class="screen">${topbar()}<div class="panel v164-setup-panel">
+        <header class="v164-setup-head"><div><span class="eyebrow">${endless ? "Endless Mode" : "Arcade Run"}</span><h1>${endless ? "How long can you protect Trust?" : `${V164_REGULAR_ROUNDS} rounds. One final boss.`}</h1><p>${endless ? "Rounds continue without a boss until Trust reaches zero. Your score and rounds survived have their own leaderboard." : "A shorter, balanced run designed to finish in one sitting."}</p></div></header>
+        <h3>Choose your play style</h3>
+        <div class="card-grid v164-audience-grid">
+          ${audienceCard("playerMode", "family", "👪", "Family Mode", "Balanced text and pacing.")}
+          ${audienceCard("playerMode", "self", "🛡️", "Self-Protection", "Fast personal practice.")}
+          ${audienceCard("playerMode", "senior", "🏛️", "Senior-Friendly", "Larger text, larger controls, and no countdown timer.")}
+        </div>
+        <div class="v164-settings-grid">
+          <section><h3>Difficulty</h3><div class="segment-row">${radio("difficulty", "easy", "Relaxed")}${radio("difficulty", "medium", "Standard")}${radio("difficulty", "hard", "Challenge")}</div></section>
+          <section><h3>Controls</h3><div class="segment-row">${radio("deviceMode", "auto", "Auto")}${radio("deviceMode", "desktop", "Computer")}${radio("deviceMode", "touch", "Touch")}${radio("deviceMode", "motion", "Phone Tilt")}</div></section>
+        </div>
+        <div class="motion-control-help"><span>📱 Touch buttons always work. Phone Tilt is optional and can be enabled during movement games.</span><div class="motion-control-actions"><button class="btn btn-primary btn-small" id="motionEnableBtn" type="button">Enable Phone Tilt</button><button class="btn btn-secondary btn-small" id="motionCalibrateBtn" type="button">Calibrate</button></div></div>
+        <div class="button-row"><button class="btn" id="backBtn">Back</button><button class="btn btn-primary" id="beginBtn">${endless ? "Start Endless Mode" : "Start Arcade Run"}</button></div>
+      </div></section>`;
+  }
+
+  function v164WireSetup(mode) {
+    wireTopbar();
+    $$('[data-set]').forEach((button) => on(button, "click", () => {
+      state[button.dataset.set] = button.dataset.value;
+      if (state.playerMode === "senior") state.difficulty = "easy";
+      mode === "endless" ? showEndlessSetup() : showSetup();
+    }));
+    $$('input[type="radio"]').forEach((input) => on(input, "change", async () => {
+      if (input.name === "deviceMode" && input.value === "motion") {
+        const enabled = await v16EnableMotionControls();
+        state.deviceMode = enabled ? "motion" : "touch";
+      } else state[input.name] = input.value;
+    }));
+    on($("#motionEnableBtn"), "click", async () => {
+      if (await v16EnableMotionControls()) { state.deviceMode = "motion"; toast("Phone Tilt enabled."); }
+    });
+    on($("#motionCalibrateBtn"), "click", v16CalibrateTilt);
+    on($("#backBtn"), "click", showHome);
+    on($("#beginBtn"), "click", mode === "endless" ? startEndless : startGame);
+  }
+
+  showSetup = function v164Override_showSetup() { render(v164SetupBody("regular")); v164WireSetup("regular"); }
+  function showEndlessSetup() { render(v164SetupBody("endless")); v164WireSetup("endless"); }
+
+  function v164RoundPool() {
+    return ROUNDS.filter((round) => !["bossRush", "legacyBossRush"].includes(round.type));
+  }
+
+  function v164BalancedRounds(target) {
+    const pool = v164RoundPool();
+    const groups = [
+      [["virusDownload","rushStopDownload","tabStopDownload","popupPurge","closeWindowX","platformHints","hintPlatformer","starBridgeRun","fallingDodge","shieldBlock","spotlightSpy","spywareMaze","spamBlockHunt","shieldCursor","messageShieldRun","textDodge","scamRainDodge","packetPaddle","scamWhack","fakeAdClean"], 5],
+      [["attachmentFlash","attachmentMemory","fileDelete","fileExplorerDelete","downloadDelete","taskbarFileDelete","dragTrash","giftCardShredder","passwordVaultDrag"], 3],
+      [["gameChatReport","lobbyMute","emailBlock","smsBlock","smsReport","chatRefuse","romanceSwipe","marketplaceMatch","swipeJudge","socialFirewall","romanceEvidenceChat","phoneTapSequence"], 3],
+      [["dangerWebsite","siteInspector","freeSiteExit","privacyExit","passwordFill","passwordManagerFill","domainDuel","qrScan","qrLensFocus","wifiHotspotChoice","vpnTunnelSwitch","browserPatchRun","browserRedirectMaze","linkBridge"], 3],
+      [["safeChoice","deepfakeCall","deepfakeSpot","bankStatementHunt","shoppingCartAudit","extensionAudit","permissionsToggle","permissionToggle","privacyCleaner","clipboardCleaner","familyCallOrder","sequenceBuilder","firewallPatchGrid","mfaApprovalGate","mfaShield","moneyGuard","categoryMatch","sortBasket","safeWordChallenge","callInterrupt"], 4]
+    ];
+    const chosen = [];
+    const used = new Set();
+    groups.forEach(([types, count]) => {
+      sample(v16DifficultyFilter(pool.filter((round) => types.includes(round.type) && !used.has(round.id))), count).forEach((round) => {
+        chosen.push(round); used.add(round.id);
+      });
+    });
+    const remaining = shuffle(v16DifficultyFilter(pool.filter((round) => !used.has(round.id))));
+    while (chosen.length < target && remaining.length) chosen.push(remaining.shift());
+    return shuffle(chosen).slice(0, target);
+  }
+
+  startGame = function v164Override_startGame() {
+    if (!v16IsProfileUnlocked(v16GetActiveProfile().id)) return v16RequireUnlocked(startGame);
+    clearLoops(); ensureAudio(); v16NewRunState("full");
+    state.selected = v164BalancedRounds(V164_REGULAR_ROUNDS);
+    const boss = ROUNDS.find((round) => round.type === "bossRush");
+    if (boss) state.selected.push(boss);
+    v16SaveProgressSnapshot();
+    renderRound();
+  }
+
+  function v164AppendEndlessBatch() {
+    const recent = new Set(state.selected.slice(-30).map((round) => round.id));
+    let candidates = shuffle(v16DifficultyFilter(v164RoundPool().filter((round) => !recent.has(round.id))));
+    if (candidates.length < V164_ENDLESS_BATCH) candidates = shuffle(v16DifficultyFilter(v164RoundPool()));
+    state.selected.push(...candidates.slice(0, V164_ENDLESS_BATCH));
+  }
+
+  function startEndless() {
+    if (!v16IsProfileUnlocked(v16GetActiveProfile().id)) return v16RequireUnlocked(startEndless);
+    clearLoops(); ensureAudio(); v16NewRunState("endless");
+    state.selected = [];
+    v164AppendEndlessBatch();
+    v16SaveProgressSnapshot();
+    renderRound();
+  }
+
+  nextRound = function v164Override_nextRound() {
+    if (state.practiceMode || state.runMode === "practice") return showHome();
+    if (state.trust <= 0) return showResults(true);
+    state.idx += 1;
+    if (state.runMode === "endless") {
+      if (state.idx >= state.selected.length - 2) v164AppendEndlessBatch();
+      v16SaveProgressSnapshot();
+      return renderRound();
+    }
+    if (state.idx >= state.selected.length) return showResults(false);
+    v16SaveProgressSnapshot();
+    renderRound();
+  }
+
+  /* ============================================================
+     V16.4E) Separate Result Recording + Leaderboards
+     ============================================================ */
+  v16RecordResult = function v164Override_v16RecordResult(lost) {
+    if (state.resultRecorded) return v16GetActiveProfile();
+    state.resultRecorded = true;
+    const profile = v16GetActiveProfile();
+    const mode = state.runMode || "full";
+    const isDemo = mode === "demo";
+    const isPractice = mode === "practice" || state.practiceMode;
+    const isVersus = mode === "versus";
+    if (isPractice || isVersus) return profile;
+    const score = Number(state.score || 0);
+    const rounds = Number(state.correct || 0) + Number(state.mistakes || 0);
+    const updates = {
+      totalScore: Number(profile.totalScore || 0) + score,
+      lastScore: score,
+      lastPlayedAt: v16NowIso(),
+      progress: null
+    };
+    if (isDemo) {
+      updates.demoBestScore = Math.max(Number(profile.demoBestScore || 0), score);
+      updates.demoRuns = Number(profile.demoRuns || 0) + 1;
+    } else if (mode === "endless") {
+      updates.endlessBestScore = Math.max(Number(profile.endlessBestScore || 0), score);
+      updates.endlessBestRounds = Math.max(Number(profile.endlessBestRounds || 0), rounds);
+      updates.endlessRuns = Number(profile.endlessRuns || 0) + 1;
+    } else {
+      updates.regularBestScore = Math.max(Number(profile.regularBestScore ?? profile.bestScore ?? 0), score);
+      updates.regularWins = Number(profile.regularWins ?? profile.wins ?? 0) + (!lost ? 1 : 0);
+      updates.regularRuns = Number(profile.regularRuns ?? profile.runs ?? 0) + 1;
+      updates.bestScore = updates.regularBestScore;
+      updates.wins = updates.regularWins;
+      updates.runs = updates.regularRuns;
+    }
+    const updated = v16UpdateProfile(profile.id, updates) || profile;
+    localStorage.ffV10Best = String(Math.max(Number(localStorage.ffV10Best || 0), Number(updated.regularBestScore || 0)));
+    const history = v16ReadJson(V16_STORAGE.history, []);
+    history.unshift({ id: v16Uuid(), profileId: profile.id, username: profile.username, score, correct: state.correct, bestStreak: state.bestStreak, lost: Boolean(lost), mode, rounds, playedAt: v16NowIso() });
+    v16WriteJson(V16_STORAGE.history, history.slice(0, 150));
+    if (!isDemo && updated.globalShare && V16_ONLINE.user) {
+      v164SubmitModeScore(updated, mode === "endless" ? "endless" : "regular", score, rounds, !lost).catch((error) => console.warn("Mode score publish failed:", error));
+    }
+    return updated;
+  }
+
+  function v164LocalLeaderboard(mode) {
+    return v16GetProfiles().map((profile) => mode === "endless" ? {
+      username: profile.username,
+      score: Number(profile.endlessBestScore || 0),
+      wins: 0,
+      rounds: Number(profile.endlessBestRounds || 0)
+    } : {
+      username: profile.username,
+      score: Number(profile.regularBestScore ?? profile.bestScore ?? 0),
+      wins: Number(profile.regularWins ?? profile.wins ?? 0),
+      rounds: 0
+    }).filter((row) => row.score > 0 || row.wins > 0 || row.rounds > 0)
+      .sort((a, b) => b.score - a.score || b.rounds - a.rounds || b.wins - a.wins || a.username.localeCompare(b.username))
+      .map((row, index) => ({ ...row, rank_position: index + 1 }));
+  }
+
+  function v164LeaderboardRows(rows, mode) {
+    if (!rows.length) return `<div class="leaderboard-empty">No ${mode === "endless" ? "Endless" : "Arcade"} scores yet.</div>`;
+    return `<div class="leaderboard-table v164-leaderboard-table" role="table">
+      <div class="leaderboard-row leaderboard-head"><span>Rank</span><span>Player</span><span>Score</span><span>${mode === "endless" ? "Rounds" : "Wins"}</span></div>
+      ${rows.map((row, index) => {
+        const rank = Number(row.rank_position || index + 1);
+        const medal = rank <= 3 ? ["🥇","🥈","🥉"][rank - 1] : `#${rank}`;
+        return `<div class="leaderboard-row"><span class="rank-medal">${medal}</span><strong>${esc(row.username)}</strong><span>${Number(row.score || 0).toLocaleString()}</span><span>${Number(mode === "endless" ? row.rounds || 0 : row.wins || 0).toLocaleString()}</span></div>`;
+      }).join("")}</div>`;
+  }
+
+  async function v164HydrateModeBoard(mode) {
+    const host = $("#v164GlobalBoard");
+    if (!host) return;
+    if (!v16GlobalConfigured()) { host.innerHTML = `<div class="leaderboard-empty">Worldwide rankings are currently unavailable.</div>`; return; }
+    host.innerHTML = `<div class="leaderboard-loading">Loading worldwide ${mode === "endless" ? "Endless" : "Arcade"} scores…</div>`;
+    try {
+      const rows = await v164FetchModeLeaderboard(mode, 50);
+      if ($("#v164GlobalBoard")) host.innerHTML = v164LeaderboardRows(rows, mode);
+    } catch (error) {
+      host.innerHTML = `<div class="leaderboard-empty"><strong>Could not load rankings.</strong><p>${esc(error.message || "Try again shortly.")}</p></div>`;
+    }
+  }
+
+  showLeaderboard = function v164Override_showLeaderboard(mode = "regular") {
+    const selectedMode = mode === "endless" ? "endless" : "regular";
+    const localRows = v164LocalLeaderboard(selectedMode);
+    render(`<section class="screen">${topbar()}<div class="panel leaderboard-panel v164-leaderboard-panel">
+      <header class="leaderboard-hero"><div><span class="eyebrow">Scored solo gameplay only</span><h1>${selectedMode === "endless" ? "Endless Mode rankings" : "Arcade Run rankings"}</h1><p>Demo and online-room scores are not mixed into these boards.</p></div><div class="leaderboard-actions"><button class="btn" id="backBtn">Back Home</button><button class="btn btn-secondary" id="profilesBtn">Accounts</button></div></header>
+      <div class="v164-board-tabs"><button class="btn ${selectedMode === "regular" ? "btn-primary" : "btn-secondary"}" id="regularBoardBtn">🎮 Arcade + Boss</button><button class="btn ${selectedMode === "endless" ? "btn-primary" : "btn-secondary"}" id="endlessBoardBtn">♾️ Endless</button></div>
+      <div class="leaderboard-columns">
+        <section class="leaderboard-board"><div class="leaderboard-title"><strong>💾 This Device</strong><span>${localRows.length} ranked</span></div>${v164LeaderboardRows(localRows, selectedMode)}</section>
+        <section class="leaderboard-board"><div class="leaderboard-title"><strong>🌎 Worldwide</strong><span>Persistent database</span></div><div id="v164GlobalBoard"></div></section>
+      </div>
+      <div class="privacy-note compact"><strong>Fair separation</strong><p>Arcade ranks use completed Arcade Runs. Endless ranks use survival scores and rounds cleared. Demo and online multiplayer remain separate.</p></div>
+    </div></section>`);
+    wireTopbar();
+    on($("#backBtn"), "click", showHome);
+    on($("#profilesBtn"), "click", () => showProfileManager("profiles"));
+    on($("#regularBoardBtn"), "click", () => showLeaderboard("regular"));
+    on($("#endlessBoardBtn"), "click", () => showLeaderboard("endless"));
+    v164HydrateModeBoard(selectedMode);
+  }
+
+  showResults = function v164Override_showResults(lost) {
+    const endless = state.runMode === "endless";
+    v163ShowResults(endless ? true : lost);
+    if (!endless) return;
+    const title = $(".results-panel h1");
+    const subtitle = $(".results-panel > p");
+    if (title) title.textContent = "Endless run complete!";
+    if (subtitle) subtitle.textContent = `You survived ${Number(state.correct + state.mistakes)} rounds. Endless score and survival progress were saved separately.`;
+    const eyebrow = $(".results-panel .eyebrow");
+    if (eyebrow) eyebrow.textContent = `Endless recap · ${v16GetActiveProfile().username}`;
+    const preview = $(".result-leaderboard-preview");
+    if (preview) preview.innerHTML = `<div class="leaderboard-title"><strong>♾️ Endless standings on this device</strong><button class="btn btn-secondary btn-small" id="resultLeaderboardBtnV164">Full Endless Board</button></div>${v164LeaderboardRows(v164LocalLeaderboard("endless").slice(0,5), "endless")}`;
+    const again = $("#againBtn");
+    if (again) {
+      again.textContent = "Play Endless Again";
+      again.addEventListener("click", (event) => { event.preventDefault(); event.stopImmediatePropagation(); startEndless(); }, { capture: true });
+    }
+    on($("#resultLeaderboardBtnV164"), "click", () => showLeaderboard("endless"));
+  }
+
+  /* ============================================================
+     V16.4F) Slower Online Reading Pace
+     ============================================================ */
+  secondsFor = function v164Override_secondsFor(round) {
+    let seconds = v163SecondsFor(round);
+    if (state.runMode === "versus" && V16_ONLINE.match?.roomMode) {
+      const pace = V16_ONLINE.match.timerMode || V16_ONLINE.room?.row?.settings?.timer_mode || "relaxed";
+      const multiplier = pace === "no_rush" ? 2.15 : pace === "standard" ? 1.35 : pace === "challenge" ? 1.0 : 1.7;
+      seconds = Math.round(seconds * multiplier);
+    }
+    return seconds;
+  }
+
+  /* ============================================================
+     V16.4G) Responsive Swipe Cards + Real Touch Swiping
+     ============================================================ */
+  drawSwipe = function v164Override_drawSwipe(round, mode) {
+    const profile = round.profiles[state.step] || round.profiles[0];
+    const isRomance = mode === "romance";
+    return `<div class="swipe-stage v164-swipe-stage">
+      <div class="v164-swipe-progress"><span>${state.step + 1} of ${round.profiles.length}</span><div><i style="width:${((state.step + 1) / round.profiles.length) * 100}%"></i></div></div>
+      <article class="${isRomance ? "profile-card" : "buyer-card"} v164-swipe-card" id="v164SwipeCard">
+        <div class="profile-top"><div class="profile-photo">${isRomance ? "💘" : "🛒"}</div><div><h3>${esc(profile[0])}</h3><p class="muted">Read the whole message before deciding.</p></div></div>
+        <div class="scenario-text v164-swipe-copy">${esc(profile[1])}</div>
+        <div class="v164-swipe-hints"><span>← Scam</span><span>Safer →</span></div>
+      </article>
+      <div class="swipe-controls"><button class="btn btn-danger swipe-btn" data-swipe="left">← Scam / Reject</button><button class="btn btn-good swipe-btn" data-swipe="right">Looks OK →</button></div>
+      <p class="v164-control-note">Tap a button, use ←/→, or swipe the card.</p>
+    </div>`;
+  }
+
+  wireSwipe = function v164Override_wireSwipe(round, mode) {
+    let startX = null;
+    let deltaX = 0;
+    function answer(direction) {
+      if (state.answered) return;
+      const profile = round.profiles[state.step];
+      const isScam = Boolean(profile[2]);
+      const correct = isScam ? direction === "left" : direction === "right";
+      if (!correct) return failRound(isScam ? "That card contained scam pressure." : "That interaction was safer.");
+      sfx("coin");
+      state.step += 1;
+      if (state.step >= round.profiles.length) return passRound(mode === "romance" ? "Romance swipes cleared." : "Marketplace swipes cleared.");
+      $("#microgame").innerHTML = drawSwipe(round, mode);
+      wireSwipe(round, mode);
+    }
+    $$(".swipe-btn").forEach((button) => on(button, "click", () => answer(button.dataset.swipe)));
+    on(document, "keydown", (event) => { if (event.key === "ArrowLeft") answer("left"); if (event.key === "ArrowRight") answer("right"); });
+    const card = $("#v164SwipeCard");
+    on(card, "pointerdown", (event) => { startX = event.clientX; deltaX = 0; card.setPointerCapture?.(event.pointerId); });
+    on(card, "pointermove", (event) => {
+      if (startX === null) return;
+      deltaX = event.clientX - startX;
+      card.style.transform = `translateX(${clamp(deltaX, -90, 90)}px) rotate(${clamp(deltaX / 18, -5, 5)}deg)`;
+    });
+    on(card, "pointerup", () => {
+      card.style.transform = "";
+      if (Math.abs(deltaX) >= 55) answer(deltaX < 0 ? "left" : "right");
+      startX = null; deltaX = 0;
+    });
+    on(card, "pointercancel", () => { card.style.transform = ""; startX = null; deltaX = 0; });
+  }
+
+  /* ============================================================
+     V16.4H) Game-Chat Culprit Appears at a Random Message Position
+     ============================================================ */
+  drawLobbyV13 = function v164Override_drawLobbyV13(round) {
+    const seedPlayers = round.players || ["PixelPat", "GardenMom", "Runner42", "StudyBuddy", "NovaKid", "CraftyCat", "RapidFox", "ByteBuddy"];
+    const roster = shuffle([...new Set(seedPlayers.concat(round.player || [], round.spammer || []))]).slice(0, Math.min(8, Math.max(6, seedPlayers.length)));
+    const scamPlayer = roster[Math.floor(Math.random() * roster.length)] || "ScamBot99";
+    const decoys = roster.filter((name) => name !== scamPlayer);
+    const firstScamIndex = Math.floor(Math.random() * 6); // first, second, third, fourth, fifth, or sixth message
+    const scamLines = shuffle([
+      round.message || round.scenario || "FREE COINS! Use my link and log in now!",
+      "Hurry—this reward expires soon.",
+      "Do not tell moderators or the offer disappears.",
+      "Send your login code and I can unlock the prize."
+    ]);
+    const safeLines = shuffle([
+      "Anyone want to play the next round?", "Good game!", "I found the checkpoint.",
+      "Use the official game menu for events.", "Please do not click random links.",
+      "Can someone help with the puzzle?", "Thanks for the invite!"
+    ]);
+    const queue = [];
+    for (let index = 0; index < 22; index += 1) {
+      const scamTurn = index === firstScamIndex || (index > firstScamIndex && (index - firstScamIndex) % 4 === 0);
+      queue.push(scamTurn
+        ? { from: scamPlayer, text: scamLines[index % scamLines.length], scam: true }
+        : { from: decoys[index % Math.max(1, decoys.length)] || "Player", text: safeLines[index % safeLines.length], scam: false });
+    }
+    state.v14Lobby = { scamPlayer, queue, visibleScam: 0, selected: null, lineCount: 0, firstScamIndex };
+    const assisted = state.playerMode === "senior" || state.difficulty === "easy";
+    return `<div class="lobby-ui live-lobby-ui v164-chat-report">
+      <aside class="sidebar"><h3>Players</h3><p class="muted small">The suspicious sender and message position change every game.</p><div class="player-list">${roster.map((name) => `<button class="lobby-player" data-player="${esc(name)}">${esc(name)}</button>`).join("")}</div></aside>
+      <div class="mainarea"><div class="live-chat-header"><strong>Live Game Room</strong><span id="liveChatStatus">Messages incoming…</span></div><div class="chat-log live-chat-log" id="liveChatLog"><div class="chat-line system-line">Watch the sender names. ${assisted ? "Suspicious messages are highlighted in this mode." : "Use message clues—there is no highlight."}</div></div><div class="player-menu" id="playerMenu"><strong id="menuTitle">Select a suspicious player first.</strong><div class="grid3"><button class="action-btn" data-menu-action="friend">Add Friend</button><button class="action-btn" data-menu-action="report">Mute + Report</button><button class="action-btn" data-menu-action="open">Open Link</button></div></div></div>
+    </div>`;
+  }
+
+  wireLobbyV13 = function v164Override_wireLobbyV13(round) {
+    const lobby = state.v14Lobby;
+    const log = $("#liveChatLog");
+    let index = 0;
+    const highlight = state.playerMode === "senior" || state.difficulty === "easy";
+    function addLine() {
+      if (state.answered || !log || !lobby) return;
+      const line = lobby.queue[index++] || { from: lobby.scamPlayer, text: "Use my link now!", scam: true };
+      lobby.lineCount += 1;
+      if (line.scam) lobby.visibleScam += 1;
+      const node = document.createElement("div");
+      node.className = `chat-line ${line.scam && highlight ? "scam-chat-line" : ""}`;
+      node.innerHTML = `<strong>${esc(line.from)}:</strong> ${esc(line.text)}`;
+      log.appendChild(node); log.scrollTop = log.scrollHeight;
+      const status = $("#liveChatStatus");
+      if (status) status.textContent = `${lobby.lineCount} messages received`;
+    }
+    const first = setTimeout(addLine, 250);
+    const timer = setInterval(addLine, state.playerMode === "senior" ? 1150 : 850);
+    addCleanup(() => clearTimeout(first)); addCleanup(() => clearInterval(timer));
+    $$(".lobby-player").forEach((button) => on(button, "click", () => {
+      lobby.selected = button.dataset.player;
+      $$(".lobby-player").forEach((node) => node.classList.remove("selected"));
+      button.classList.add("selected"); $("#playerMenu")?.classList.add("open");
+      if ($("#menuTitle")) $("#menuTitle").textContent = `${lobby.selected} options`;
+      if (lobby.selected !== lobby.scamPlayer) minorPenalty("That player has not posted the scam message. Keep watching the sender names.");
+    }));
+    $$('[data-menu-action]').forEach((button) => on(button, "click", () => {
+      if (!lobby.selected) return toast("Select a player first.");
+      if (button.dataset.menuAction === "open") return failRound("Opened the scam link from game chat.");
+      if (lobby.selected === lobby.scamPlayer && button.dataset.menuAction === "report") return passRound("Suspicious game-chat account muted and reported.");
+      minorPenalty("Choose Mute + Report for the suspicious sender.");
+    }));
+  }
+
+  drawGameChat = function v164Override_drawGameChat(round) { return drawLobbyV13(round); }
+  wireGameChat = function v164Override_wireGameChat(round) { return wireLobbyV13(round); }
+
+  /* ============================================================
+     V16.4I) Universal Touch + Tilt Controller for Moving Games
+     ============================================================ */
+  function v164DispatchKey(type, key, code = key) {
+    document.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true, cancelable: true }));
+  }
+
+  function v164UniversalController(round) {
+    if (!V164_MOVEMENT_TYPES.has(round.type)) return "";
+    const vertical = V164_VERTICAL_MOVEMENT_TYPES.has(round.type);
+    return `<div class="v164-mobile-controller" id="v164MobileController" aria-label="Touch movement controls">
+      <div class="v164-controller-label"><span>Touch Controls</span><button type="button" id="v164TiltBtn">📐 Tilt</button></div>
+      <div class="v164-control-pad">
+        ${vertical ? `<button data-v164-key="ArrowUp" aria-label="Move up">▲</button>` : ""}
+        <button data-v164-key="ArrowLeft" aria-label="Move left">◀</button>
+        <button data-v164-key="Space" data-v164-code="Space" class="action" aria-label="Action or jump">●</button>
+        <button data-v164-key="ArrowRight" aria-label="Move right">▶</button>
+        ${vertical ? `<button data-v164-key="ArrowDown" aria-label="Move down">▼</button>` : ""}
+      </div>
+      <small id="v164TiltStatus">Tap controls always work.</small>
+    </div>`;
+  }
+
+  function v164WireUniversalController(round) {
+    const controller = $("#v164MobileController");
+    if (!controller) return;
+    $$('[data-v164-key]', controller).forEach((button) => {
+      const key = button.dataset.v164Key;
+      const code = button.dataset.v164Code || key;
+      const down = (event) => { event.preventDefault(); button.classList.add("pressed"); v164DispatchKey("keydown", key, code); };
+      const up = (event) => { event.preventDefault(); button.classList.remove("pressed"); v164DispatchKey("keyup", key, code); };
+      on(button, "pointerdown", down); on(button, "pointerup", up); on(button, "pointercancel", up); on(button, "pointerleave", up);
+    });
+    on($("#v164TiltBtn"), "click", async () => {
+      const ok = await v16EnableMotionControls();
+      if (ok) { state.deviceMode = "motion"; v164StartTiltBridge(round); if ($("#v164TiltStatus")) $("#v164TiltStatus").textContent = "Tilt active. Hold your phone naturally."; }
+    });
+    if (state.deviceMode === "motion") v164StartTiltBridge(round);
+  }
+
+  function v164StartTiltBridge(round) {
+    let horizontal = "";
+    let vertical = "";
+    function release(axisKey) { if (axisKey) v164DispatchKey("keyup", axisKey); }
+    function setAxis(current, next) {
+      if (current === next) return current;
+      release(current);
+      if (next) v164DispatchKey("keydown", next);
+      return next;
+    }
+    function frame() {
+      if (state.answered || state.deviceMode !== "motion" || !state.roundStarted) { release(horizontal); release(vertical); return; }
+      const x = Number(state.tiltX || 0);
+      const y = Number(state.tiltY || 0);
+      horizontal = setAxis(horizontal, x < -3.5 ? "ArrowLeft" : x > 3.5 ? "ArrowRight" : "");
+      if (V164_VERTICAL_MOVEMENT_TYPES.has(round.type)) vertical = setAxis(vertical, y < -5 ? "ArrowUp" : y > 5 ? "ArrowDown" : "");
+      state.v164TiltAnim = requestAnimationFrame(frame);
+    }
+    if (state.v164TiltAnim) cancelAnimationFrame(state.v164TiltAnim);
+    state.v164TiltAnim = requestAnimationFrame(frame);
+    addCleanup(() => { if (state.v164TiltAnim) cancelAnimationFrame(state.v164TiltAnim); release(horizontal); release(vertical); });
+  }
+
+  function v164InstallOrientationTracking() {
+    if (window.__ffV164OrientationInstalled) return;
+    window.__ffV164OrientationInstalled = true;
+    window.addEventListener("deviceorientation", (event) => {
+      const angle = Number(screen.orientation?.angle || window.orientation || 0);
+      let x = Number(event.gamma || 0);
+      let y = Number(event.beta || 0) - 45;
+      if (angle === 90) { const oldX = x; x = y; y = -oldX; }
+      if (angle === 270 || angle === -90) { const oldX = x; x = -y; y = oldX; }
+      state.tiltX = clamp(x - Number(state.tiltBaseline || 0), -30, 30);
+      state.tiltY = clamp(y - Number(state.tiltBaselineY || 0), -30, 30);
+    }, { passive: true });
+  }
+
+  function v164EnhanceRenderedRound() {
+    const round = state.current;
+    if (!round) return;
+    const zone = $("#microgame");
+    const panel = $(".round-panel");
+    if (zone) { zone.classList.add("v164-responsive-microgame"); zone.dataset.roundType = round.type; }
+    if (panel) panel.classList.add("v164-responsive-round-panel");
+    if (V164_MOVEMENT_TYPES.has(round.type) && !$("#v164MobileController")) {
+      zone?.insertAdjacentHTML("afterend", v164UniversalController(round));
+      v164WireUniversalController(round);
+    }
+    const roundChip = $(".round-header .chip:last-child");
+    if (roundChip && state.runMode === "endless") roundChip.textContent = `Endless Round ${state.idx + 1}`;
+    v164InstallOrientationTracking();
+    v164ApplyAccessibility();
+  }
+
+  renderRound = function v164Override_renderRound() {
+    v163RenderRound();
+    requestAnimationFrame(v164EnhanceRenderedRound);
+  }
+
+  /* ============================================================
+     V16.4J) Simpler Player-Facing Account Copy
+     ============================================================ */
+  v16AccountNav = function v164Override_v16AccountNav(activeTab) {
+    const tabs = [["profiles","👥","Profiles"],["security","🔐","Password"],["cloud","🌎","Online Play"],["danger","⚙️","Rename or Delete"]];
+    return `<nav class="account-nav" aria-label="Account settings">${tabs.map(([key,icon,label]) => `<button class="account-nav-btn ${activeTab === key ? "active" : ""}" data-account-tab="${key}"><span>${icon}</span><strong>${label}</strong></button>`).join("")}</nav>`;
+  }
+
+  function v164SecuritySection(active) {
+    const hasPassword = v16ProfileHasPassword(active);
+    return `<section class="account-section"><div class="account-section-head"><div><span class="eyebrow">Profile password</span><h2>Keep ${esc(active.username)} private.</h2><p>This one password unlocks the profile and protects renaming, deletion, and saved progress.</p></div><div class="account-security-badge ${hasPassword ? "secure" : "attention"}">${hasPassword ? "🔐 Protected" : "Setup required"}</div></div>
+      ${!hasPassword ? `<form class="account-form" id="setPasswordForm"><div class="form-heading"><span>🔑</span><div><strong>Create a password</strong><p>Use something memorable that other people cannot guess.</p></div></div><label><span>New password</span><div class="password-input-wrap"><input id="setPassword" type="password" autocomplete="new-password" required><button type="button" data-toggle-password="setPassword">Show</button></div></label><label><span>Confirm password</span><div class="password-input-wrap"><input id="setPasswordConfirm" type="password" autocomplete="new-password" required><button type="button" data-toggle-password="setPasswordConfirm">Show</button></div></label>${v16PasswordChecklistHtml(active.username, "setPassword")}<p class="form-error" id="securityError"></p><button class="btn btn-primary account-submit" type="submit">Save Password</button></form>` : `<div class="security-overview-grid"><article><span>${v16IsProfileUnlocked(active.id) ? "🔓" : "🔒"}</span><strong>${v16IsProfileUnlocked(active.id) ? "Unlocked now" : "Locked now"}</strong><p>Lock the profile before handing the device to someone else.</p><button class="btn btn-secondary" id="lockProfileBtn" ${v16IsProfileUnlocked(active.id) ? "" : "disabled"}>Lock Now</button></article><article><span>🛡️</span><strong>Protected actions</strong><p>The password is required to rename, delete, or change this profile.</p></article></div><button class="btn btn-primary" id="changePasswordBtn">Change Password</button><div class="privacy-note compact"><strong>Remember your password</strong><p>There is no email recovery because the game does not collect personal contact information.</p></div>`}
+    </section>`;
+  }
+
+  function v164OnlineSection(active) {
+    const configured = v16GlobalConfigured();
+    const connected = Boolean(V16_ONLINE.user);
+    const unlocked = v16IsProfileUnlocked(active.id);
+    return `<section class="account-section"><div class="account-section-head"><div><span class="eyebrow">Online Play</span><h2>Rooms, teams, and worldwide rankings.</h2><p>Other players see only your gamer tag and game progress.</p></div><div class="account-security-badge ${connected ? "secure" : configured ? "attention" : "offline"}">${connected ? "🌎 Connected" : configured ? "Ready" : "Unavailable"}</div></div>
+      ${!configured ? `<div class="cloud-setup-card"><strong>Online Play is not available on this copy of the game.</strong><p>Local Arcade, Endless, Demo, profiles, and saved progress still work normally.</p></div>` : connected ? `<div class="cloud-account-card"><div class="cloud-avatar">🌎</div><div><strong>${esc(active.username)}</strong><p>Ready for room codes, Quick Match, teams, and rankings.</p></div><span class="online-ready-pill">Online</span></div><div class="online-action-grid"><article><span>🎮</span><strong>Play Online</strong><p>Create a private room, join a code, or search for players.</p><button class="btn btn-primary" id="openMultiplayerBtn">Open Online Play</button></article><article><span>🏆</span><strong>Publish Solo Scores</strong><p>Arcade and Endless leaderboards remain separate.</p><label class="privacy-toggle global-share-large"><input id="globalShareToggle" type="checkbox" ${active.globalShare ? "checked" : ""}><span><strong>Publish my solo best scores</strong><small>Online-room and Demo scores are excluded.</small></span></label><button class="btn btn-good" id="publishBestNowBtn" ${Math.max(active.regularBestScore || 0, active.endlessBestScore || 0) > 0 ? "" : "disabled"}>Sync My Saved Best Scores</button><p class="form-error" id="globalSyncError"></p></article></div><div class="button-row"><button class="btn btn-secondary" id="cloudSignOutBtn">Disconnect on This Browser</button></div>` : `<div class="online-simple-connect"><div class="online-connect-identity"><div class="profile-avatar">${esc(active.username.slice(0,1).toUpperCase())}</div><div><span>Play online as</span><strong>${esc(active.username)}</strong><small>${unlocked ? "Your profile is ready." : "Unlock this profile first."}</small></div></div><button class="btn btn-good online-connect-button" id="anonymousConnectBtn" ${unlocked ? "" : "disabled"}>Connect to Online Play</button><p class="form-error" id="anonymousConnectError"></p></div>`}
+    </section>`;
+  }
+
+  v16AccountSectionHtml = function v164Override_v16AccountSectionHtml(tab, profiles, active) {
+    if (tab === "security") return v164SecuritySection(active);
+    if (tab === "cloud") return v164OnlineSection(active);
+    return v163AccountSectionHtml(tab, profiles, active);
+  }
+
+  showOnlineSetupHelp = function v164Override_showOnlineSetupHelp() {
+    render(`<section class="screen">${topbar()}<div class="panel setup-help-panel"><span class="eyebrow">Online Play</span><h1>Online Play is not available yet.</h1><p>You can still use every local game mode, profile, password, saved run, and device leaderboard.</p><div class="button-row"><button class="btn btn-primary" id="setupBackBtn">Back</button></div></div></section>`);
+    wireTopbar(); on($("#setupBackBtn"), "click", () => showProfileManager("cloud"));
+  }
+
+  /* ============================================================
+     V16.4K) Reactions, Live Room Updates, Team Assignment
+     ============================================================ */
+  function v164ReactionDock() {
+    return `<div class="v164-reaction-dock" aria-label="Preset reactions"><span>Quick reactions</span>${[...V164_ALLOWED_REACTIONS].map(([key,label]) => `<button type="button" data-v164-reaction="${key}">${label}</button>`).join("")}</div>`;
+  }
+
+  function v164ShowReaction(payload) {
+    if (!payload || !V164_ALLOWED_REACTIONS.has(payload.key)) return;
+    let host = $("#v164ReactionStream");
+    if (!host) { host = document.createElement("div"); host.id = "v164ReactionStream"; host.className = "v164-reaction-stream"; document.body.appendChild(host); }
+    const node = document.createElement("div");
+    node.className = "v164-floating-reaction";
+    node.innerHTML = `<strong>${esc(payload.username || "Player")}</strong><span>${esc(V164_ALLOWED_REACTIONS.get(payload.key))}</span>`;
+    host.appendChild(node);
+    setTimeout(() => node.remove(), 3200);
+  }
+
+  async function v164SendReaction(key) {
+    if (!V164_ALLOWED_REACTIONS.has(key) || !V16_ONLINE.roomChannel) return;
+    const now = Date.now();
+    if (now - Number(V16_ONLINE.lastReactionAt || 0) < 1500) return toast("Please wait before sending another reaction.");
+    V16_ONLINE.lastReactionAt = now;
+    const payload = { key, username: v16GetActiveProfile().username, userId: V16_ONLINE.user?.id, sentAt: now };
+    v164ShowReaction(payload);
+    await V16_ONLINE.roomChannel.send({ type: "broadcast", event: "reaction", payload }).catch?.(() => {});
+  }
+
+  function v164WireReactionDock(root = document) {
+    $$('[data-v164-reaction]', root).forEach((button) => on(button, "click", () => v164SendReaction(button.dataset.v164Reaction)));
+  }
+
+  v162ClearRoomTimers = function v164Override_v162ClearRoomTimers() {
+    v163ClearRoomTimers();
+    if (V16_ONLINE.roomLivePoll) clearInterval(V16_ONLINE.roomLivePoll);
+    if (V16_ONLINE.matchmakingPoll) clearInterval(V16_ONLINE.matchmakingPoll);
+    V16_ONLINE.roomLivePoll = null;
+    V16_ONLINE.matchmakingPoll = null;
+  }
+
+  v162DisconnectRoomChannel = function v164Override_v162DisconnectRoomChannel() {
+    v162ClearRoomTimers();
+    const client = V16_ONLINE.client;
+    if (client && V16_ONLINE.roomChannel) client.removeChannel(V16_ONLINE.roomChannel).catch?.(() => {});
+    V16_ONLINE.roomChannel = null;
+  }
+
+  v162FetchRoomState = async function v164Override_v162FetchRoomState() {
+    const client = v16SupabaseClient();
+    const room = V16_ONLINE.room;
+    if (!client || !room?.id) return null;
+    const [roomResponse, playersResponse] = await Promise.all([
+      client.from("ff_rooms").select("id,code,host_user_id,status,max_players,round_count,round_ids,current_round,starts_at,created_at,expires_at,finished_at,settings").eq("id", room.id).single(),
+      client.from("ff_room_players").select("room_id,user_id,username,is_host,team_no,score,current_round,finished,joined_at,last_seen,left_at").eq("room_id", room.id).order("score", { ascending: false }).order("joined_at", { ascending: true })
+    ]);
+    if (roomResponse.error) throw roomResponse.error;
+    if (playersResponse.error) throw playersResponse.error;
+    room.row = roomResponse.data; room.code = roomResponse.data.code; room.players = playersResponse.data || [];
+    v162RenderRoomLobby(); v16UpdateVersusHud(); v162RenderRoomResults(); v164RenderSpectatorPanel();
+    if (room.row.status === "playing" && room.row.round_ids?.length && !room.matchStarted) { room.matchStarted = true; v162BeginRoomMatch(room.row); }
+    if (room.row.status === "cancelled") { toast("The host closed this room."); v162ResetRoomLocalState(); showMultiplayerLobby(); }
+    return room;
+  }
+
+  v162SubscribeToRoom = async function v164Override_v162SubscribeToRoom() {
+    const client = v16SupabaseClient();
+    const room = V16_ONLINE.room;
+    if (!client || !room?.id || !V16_ONLINE.user) return;
+    v162DisconnectRoomChannel();
+    const channel = client.channel(`ff-room-live-${room.id}`, { config: { broadcast: { self: false } } });
+    V16_ONLINE.roomChannel = channel;
+    channel
+      .on("postgres_changes", { event: "*", schema: "public", table: "ff_rooms", filter: `id=eq.${room.id}` }, () => v162ScheduleRoomRefresh(40))
+      .on("postgres_changes", { event: "*", schema: "public", table: "ff_room_players", filter: `room_id=eq.${room.id}` }, () => v162ScheduleRoomRefresh(40))
+      .on("broadcast", { event: "reaction" }, ({ payload }) => v164ShowReaction(payload))
+      .on("broadcast", { event: "progress" }, ({ payload }) => {
+        if (!payload?.userId || payload.userId === V16_ONLINE.user?.id) return;
+        const player = (V16_ONLINE.room?.players || []).find((item) => item.user_id === payload.userId);
+        if (player) { player.score = Number(payload.score || 0); player.current_round = Number(payload.round || 0); player.finished = Boolean(payload.finished); }
+        v16UpdateVersusHud(); v164RenderSpectatorPanel();
+      });
+    channel.subscribe((status) => { const node = $("#roomRealtimeStatus"); if (node) node.textContent = status === "SUBSCRIBED" ? "Live updates connected" : status; if (status === "SUBSCRIBED") v162ScheduleRoomRefresh(0); });
+    const config = v16GetGlobalConfig();
+    V16_ONLINE.roomHeartbeatTimer = setInterval(() => client.rpc(config.heartbeatRoomRpc, { p_room_id: room.id }).catch?.(() => {}), 30000);
+    V16_ONLINE.roomLivePoll = setInterval(() => v162FetchRoomState().catch(() => {}), 2500);
+  }
+
+  async function v164CreateRoom(options) {
+    await v162EnsureAnonymousOnlineSession();
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig(); const profile = v16GetActiveProfile();
+    const { data, error } = await client.rpc(config.createRoomV164Rpc, {
+      p_username: profile.username,
+      p_max_players: options.mode === "team_2v2" ? 4 : clamp(Number(options.maxPlayers || 8), 2, 8),
+      p_round_count: clamp(Number(options.roundCount || 5), 3, 10),
+      p_mode: options.mode || "solo",
+      p_timer_mode: options.timerMode || "relaxed",
+      p_score_visibility: options.scoreVisibility || "live"
+    });
+    if (error) throw new Error(v162FriendlyOnlineError(error));
+    V16_ONLINE.room = { id: data.room_id, code: data.room_code, row: null, players: [], matchStarted: false };
+    await v162SubscribeToRoom(); await v162FetchRoomState(); return V16_ONLINE.room;
+  }
+
+  v162JoinRoom = async function v164Override_v162JoinRoom(code) {
+    await v162EnsureAnonymousOnlineSession();
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig(); const profile = v16GetActiveProfile(); const cleanCode = v162CleanRoomCode(code);
+    if (cleanCode.length !== 6) throw new Error("Enter the complete six-character room code.");
+    const { data, error } = await client.rpc(config.joinRoomV164Rpc, { p_code: cleanCode, p_username: profile.username });
+    if (error) throw new Error(v162FriendlyOnlineError(error));
+    V16_ONLINE.room = { id: data.room_id, code: data.room_code, row: null, players: [], matchStarted: false };
+    await v162SubscribeToRoom(); await v162FetchRoomState(); return V16_ONLINE.room;
+  }
+
+  async function v164SetTeam(teamNo) {
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig(); const room = V16_ONLINE.room;
+    if (!client || !room?.id) return;
+    const { error } = await client.rpc(config.setTeamRpc, { p_room_id: room.id, p_team_no: Number(teamNo) });
+    if (error) return toast(v162FriendlyOnlineError(error));
+    await v162FetchRoomState();
+  }
+
+  /* ============================================================
+     V16.4L) Private Rooms + Solo/Team Matchmaking UI
+     ============================================================ */
+  showMultiplayerLobby = async function v164Override_showMultiplayerLobby() {
+    v16InstallRuntimeOnce();
+    if (!v16GlobalConfigured()) return showOnlineSetupHelp();
+    try { await v162EnsureAnonymousOnlineSession(); } catch (error) { V16_SECURITY.accountMessage = v162FriendlyOnlineError(error); return showProfileManager("cloud"); }
+    if (V16_ONLINE.room?.id) { await v162FetchRoomState().catch(() => {}); return v162ShowRoomLobby(); }
+    const profile = v16GetActiveProfile();
+    render(`<section class="screen multiplayer-screen">${topbar()}<div class="panel multiplayer-panel v164-online-hub">
+      <header class="multiplayer-hero"><div><span class="eyebrow">Online Play</span><h1>Private rooms or Quick Match.</h1><p>Play as ${esc(profile.username)}. There is no free-text chat—only safe preset reactions.</p></div><div class="lobby-status-card"><span class="online-dot"></span><strong>Online</strong><small>Gamer tag only</small></div></header>
+      <div class="v164-online-sections">
+        <section class="v164-online-section"><div class="v164-section-title"><span>🔗</span><div><h2>Private Room</h2><p>Share a six-character code with people you know.</p></div></div>
+          <div class="room-choice-grid">
+            <form class="room-choice-card" id="createRoomForm"><h3>Create</h3><label><span>Game type</span><select id="roomMode"><option value="solo">Individual race</option><option value="team_2v2">2v2 teams</option></select></label><label><span>Maximum players</span><select id="roomMaxPlayers"><option value="2">2</option><option value="4" selected>4</option><option value="6">6</option><option value="8">8</option></select></label><label><span>Rounds</span><select id="roomRoundCount"><option value="3">3</option><option value="5" selected>5</option><option value="7">7</option><option value="10">10</option></select></label><label><span>Reading pace</span><select id="roomTimerMode"><option value="relaxed" selected>Relaxed</option><option value="standard">Standard</option><option value="no_rush">No Rush</option><option value="challenge">Challenge</option></select></label><label><span>Score display</span><select id="roomScoreVisibility"><option value="live" selected>Live scores</option><option value="round">Update after each round</option><option value="final">Hidden until the end</option></select></label><button class="btn btn-primary" type="submit">Create Room</button><p class="form-error" id="createRoomError"></p></form>
+            <form class="room-choice-card" id="joinRoomForm"><h3>Join</h3><label><span>Room code</span><input class="room-code-input" id="joinRoomCode" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABC234" required></label><button class="btn btn-good" type="submit">Join Room</button><p class="form-error" id="joinRoomError"></p></form>
+          </div>
+        </section>
+        <section class="v164-online-section"><div class="v164-section-title"><span>🔎</span><div><h2>Search for Players</h2><p>No code needed. Keep this page open while the game finds enough players.</p></div></div><div class="v164-match-search-grid"><button class="v164-search-card" data-match-search="solo"><span>⚔️</span><strong>Quick Solo Match</strong><small>Find one opponent automatically</small></button><button class="v164-search-card" data-match-search="team_2v2"><span>🤝</span><strong>2v2 Team Search</strong><small>Find a teammate and two opponents</small></button></div></section>
+      </div>
+      <div class="button-row"><button class="btn" id="roomHubHomeBtn">Back Home</button><button class="btn btn-secondary" id="roomHubLeaderboardBtn">Leaderboards</button></div>
+    </div></section>`);
+    wireTopbar();
+    on($("#roomMode"), "change", (event) => { const max = $("#roomMaxPlayers"); if (event.target.value === "team_2v2") { max.value = "4"; max.disabled = true; } else max.disabled = false; });
+    on($("#joinRoomCode"), "input", (event) => { event.target.value = v162CleanRoomCode(event.target.value); });
+    on($("#createRoomForm"), "submit", async (event) => { event.preventDefault(); const error = $("#createRoomError"); const button = $("button[type='submit']", event.currentTarget); button.disabled = true; error.textContent = "Creating room…"; try { await v164CreateRoom({ mode: $("#roomMode").value, maxPlayers: $("#roomMaxPlayers").value, roundCount: $("#roomRoundCount").value, timerMode: $("#roomTimerMode").value, scoreVisibility: $("#roomScoreVisibility").value }); v162ShowRoomLobby(); } catch (err) { button.disabled = false; error.textContent = v162FriendlyOnlineError(err); } });
+    on($("#joinRoomForm"), "submit", async (event) => { event.preventDefault(); const error = $("#joinRoomError"); const button = $("button[type='submit']", event.currentTarget); button.disabled = true; error.textContent = "Joining…"; try { await v162JoinRoom($("#joinRoomCode").value); v162ShowRoomLobby(); } catch (err) { button.disabled = false; error.textContent = v162FriendlyOnlineError(err); } });
+    $$('[data-match-search]').forEach((button) => on(button, "click", () => v164StartMatchmaking(button.dataset.matchSearch)));
+    on($("#roomHubHomeBtn"), "click", showHome); on($("#roomHubLeaderboardBtn"), "click", () => showLeaderboard("regular"));
+  }
+
+  async function v164StartMatchmaking(mode) {
+    try {
+      await v162EnsureAnonymousOnlineSession();
+      const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+      const { data, error } = await client.rpc(config.matchmakingJoinRpc, { p_username: v16GetActiveProfile().username, p_mode: mode, p_timer_mode: "relaxed" });
+      if (error) throw error;
+      if (data?.room_id) return v164EnterMatchedRoom(data.room_id, data.room_code);
+      v164ShowMatchmakingWait(mode);
+    } catch (error) { toast(v162FriendlyOnlineError(error)); }
+  }
+
+  function v164ShowMatchmakingWait(mode) {
+    render(`<section class="screen">${topbar()}<div class="panel v164-matchmaking-panel"><div class="v164-search-spinner">🔎</div><span class="eyebrow">Searching worldwide</span><h1>${mode === "team_2v2" ? "Finding four players for 2v2…" : "Finding an opponent…"}</h1><p>Keep this page open. The match will appear automatically.</p><div class="v164-search-status" id="v164SearchStatus">Looking for compatible players…</div><button class="btn btn-danger" id="cancelSearchBtn">Cancel Search</button></div></section>`);
+    wireTopbar();
+    const check = async () => {
+      const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+      const { data, error } = await client.rpc(config.matchmakingStatusRpc, {});
+      if (error) return;
+      if (data?.room_id) { clearInterval(V16_ONLINE.matchmakingPoll); V16_ONLINE.matchmakingPoll = null; await v164EnterMatchedRoom(data.room_id, data.room_code); }
+      else if ($("#v164SearchStatus")) $("#v164SearchStatus").textContent = `Waiting players: ${Number(data?.waiting_count || 1)} · ${mode === "team_2v2" ? "4 needed" : "2 needed"}`;
+    };
+    V16_ONLINE.matchmakingPoll = setInterval(check, 1800); check();
+    on($("#cancelSearchBtn"), "click", async () => { const client = v16SupabaseClient(); const config = v16GetGlobalConfig(); await client.rpc(config.matchmakingCancelRpc, {}).catch?.(() => {}); if (V16_ONLINE.matchmakingPoll) clearInterval(V16_ONLINE.matchmakingPoll); V16_ONLINE.matchmakingPoll = null; showMultiplayerLobby(); });
+  }
+
+  async function v164EnterMatchedRoom(roomId, roomCode) {
+    V16_ONLINE.room = { id: roomId, code: roomCode, row: null, players: [], matchStarted: false };
+    await v162SubscribeToRoom(); await v162FetchRoomState(); v162ShowRoomLobby();
+  }
+
+  v162ShowRoomLobby = function v164Override_v162ShowRoomLobby() {
+    const room = V16_ONLINE.room;
+    if (!room?.id) return showMultiplayerLobby();
+    render(`<section class="screen multiplayer-screen">${topbar()}<div class="panel multiplayer-panel room-lobby-panel"><header class="room-lobby-hero"><div><span class="eyebrow">Online waiting room</span><h1 id="v164RoomTitle">Waiting for players.</h1><p id="v164RoomSubtitle">Share the code or wait for matchmaking to complete.</p></div><div class="room-code-card"><span>ROOM CODE</span><strong id="roomCodeText">${esc(room.code || "------")}</strong><button class="btn btn-primary btn-small" id="copyRoomCodeBtn">Copy</button></div></header><div class="room-lobby-status"><span class="online-dot"></span><strong id="roomRealtimeStatus">Connecting live updates…</strong><span id="roomPlayerCount">0 players</span></div><div class="room-lobby-layout"><section class="room-player-board"><div class="leaderboard-title"><strong>👥 Players</strong><span id="v164RoomModeLabel">Individual race</span></div><div id="roomLobbyPlayers" class="room-player-list"></div></section><aside class="room-host-panel" id="roomHostPanel"></aside></div>${v164ReactionDock()}<div class="button-row"><button class="btn btn-danger" id="leaveRoomBtn">Leave Room</button><button class="btn btn-secondary" id="roomLobbyLeaderboardBtn">Leaderboards</button></div></div></section>`);
+    wireTopbar(); v164WireReactionDock();
+    on($("#copyRoomCodeBtn"), "click", async () => { try { await navigator.clipboard.writeText(room.code); toast("Room code copied."); } catch { toast(`Room code: ${room.code}`); } });
+    on($("#leaveRoomBtn"), "click", async () => { await v162LeaveRoom(); showMultiplayerLobby(); });
+    on($("#roomLobbyLeaderboardBtn"), "click", () => showLeaderboard("regular"));
+    on($("#homeBtn"), "click", () => v162LeaveRoom({ callServer: true }));
+    v162RenderRoomLobby(); v162ScheduleRoomRefresh(0);
+  }
+
+  function v164TeamTotals(players) {
+    return [1,2].map((team) => ({ team, score: players.filter((p) => Number(p.team_no) === team).reduce((sum,p) => sum + Number(p.score || 0), 0), players: players.filter((p) => Number(p.team_no) === team) }));
+  }
+
+  v162RenderRoomLobby = function v164Override_v162RenderRoomLobby() {
+    const room = V16_ONLINE.room; const host = $("#roomLobbyPlayers"); const controls = $("#roomHostPanel");
+    if (!room || !host || !controls) return;
+    const row = room.row || {}; const settings = row.settings || {}; const teamMode = settings.mode === "team_2v2"; const activePlayers = (room.players || []).filter((p) => !p.left_at);
+    if ($("#roomPlayerCount")) $("#roomPlayerCount").textContent = `${activePlayers.length} / ${Number(row.max_players || (teamMode ? 4 : 8))} players`;
+    if ($("#roomCodeText")) $("#roomCodeText").textContent = room.code || "------";
+    if ($("#v164RoomModeLabel")) $("#v164RoomModeLabel").textContent = teamMode ? "2v2 teams" : "Individual race";
+    host.innerHTML = activePlayers.length ? activePlayers.map((player,index) => `<article class="room-player-card ${player.user_id === V16_ONLINE.user?.id ? "you" : ""}"><div class="room-player-rank">${index+1}</div><div class="profile-avatar">${esc(String(player.username||"P").slice(0,1).toUpperCase())}</div><div><strong>${esc(player.username)}${player.user_id === V16_ONLINE.user?.id ? " · You" : ""}</strong><span>${player.is_host ? "Host" : "Player"}${teamMode ? ` · Team ${Number(player.team_no || 1)}` : ""}</span></div><span class="room-ready-status">${row.status === "waiting" ? "Ready" : `Round ${Number(player.current_round || 0)}`}</span></article>`).join("") : `<div class="lobby-empty">Waiting for players…</div>`;
+    const isHost = v162RoomIsHost();
+    if (row.status === "waiting") {
+      const teamControls = teamMode ? `<div class="v164-team-picker"><strong>Choose your team</strong><div><button class="btn btn-secondary btn-small" data-v164-team="1">Team 1</button><button class="btn btn-secondary btn-small" data-v164-team="2">Team 2</button></div></div>` : "";
+      controls.innerHTML = `${teamControls}<span class="eyebrow">${isHost ? "Host controls" : "Waiting room"}</span><h2>${teamMode ? "Build two balanced teams." : "Start when everyone is ready."}</h2><div class="room-setting-summary"><span>⏱️ ${esc(String(settings.timer_mode || "relaxed").replace("_"," "))}</span><span>🏆 ${esc(String(settings.score_visibility || "live"))} scores</span><span>🎮 ${Number(row.round_count || 5)} rounds</span></div>${isHost ? `<button class="btn btn-good room-start-button" id="startRoomMatchBtn" ${activePlayers.length < 2 || (teamMode && activePlayers.length < 4) ? "disabled" : ""}>Start Match</button><p class="small muted">${teamMode ? "Four players are required for 2v2." : "At least two players are required."}</p>` : `<p>The host will start the synchronized countdown.</p>`}`;
+      $$('[data-v164-team]').forEach((button) => on(button, "click", () => v164SetTeam(button.dataset.v164Team)));
+      on($("#startRoomMatchBtn"), "click", v162StartRoomMatch);
+      if (settings.matchmaking && isHost && activePlayers.length >= (teamMode ? 4 : 2) && !room.autoStarting) {
+        room.autoStarting = true; setTimeout(() => { if (V16_ONLINE.room?.row?.status === "waiting") v162StartRoomMatch(); }, 4000);
+      }
+    } else controls.innerHTML = `<span class="eyebrow">${row.status === "playing" ? "Match active" : "Room complete"}</span><h2>${row.status === "playing" ? "Everyone is playing the same rounds." : "Final standings are ready."}</h2>`;
+  }
+
+  v162BeginRoomMatch = function v164Override_v162BeginRoomMatch(roomRow) {
+    const settings = roomRow.settings || {};
+    const players = (V16_ONLINE.room?.players || []).filter((player) => !player.left_at);
+    V16_ONLINE.match = { roomMode: true, roomId: roomRow.id, roomCode: roomRow.code, matchId: roomRow.id, roundIds: [...(roomRow.round_ids || [])], startAt: new Date(roomRow.starts_at || Date.now() + 4000).getTime(), players, localFinished: false, localScore: Number(v162CurrentRoomPlayer()?.score || 0), resultApplied: false, timerMode: settings.timer_mode || "relaxed", scoreVisibility: settings.score_visibility || "live", teamMode: settings.mode === "team_2v2" };
+    v162ShowRoomCountdown(V16_ONLINE.match);
+  }
+
+  /* ============================================================
+     V16.4M) Live Scores + Preset Reactions During Matches
+     ============================================================ */
+  function v164ScoresVisible(match, player) {
+    if (player.user_id === V16_ONLINE.user?.id) return true;
+    if (match.scoreVisibility === "final") return Boolean(player.finished);
+    return true;
+  }
+
+  hud = function v164Override_hud() {
+    const match = V16_ONLINE.match;
+    if (!(state.runMode === "versus" && match?.roomMode)) return v161LegacyHud();
+    const progress = clamp(Math.round((state.idx / Math.max(1,state.selected.length))*100),0,100);
+    const players = v162RoomPlayersSorted(V16_ONLINE.room?.players || match.players || []);
+    const teamSummary = match.teamMode ? `<div class="v164-team-score-strip">${v164TeamTotals(players).map((team) => `<div><span>TEAM ${team.team}</span><strong>${team.score.toLocaleString()}</strong><small>${team.players.map((p)=>esc(p.username)).join(" + ") || "Waiting"}</small></div>`).join("")}</div>` : "";
+    return `<div class="room-versus-hud" id="versusHud"><div class="room-hud-title"><span>ROOM ${esc(match.roomCode)}</span><strong>${match.teamMode ? "LIVE TEAM RACE" : "LIVE STANDINGS"}</strong><small>${players.length} players</small></div>${teamSummary}<div class="room-hud-ranks" id="roomHudRanks">${players.slice(0,8).map((player,index) => `<div class="${player.user_id === V16_ONLINE.user?.id ? "you" : ""}"><b>${index+1}</b><span>${esc(player.username)}</span><strong>${v164ScoresVisible(match,player) ? Number(player.user_id === V16_ONLINE.user?.id ? state.score : player.score || 0).toLocaleString() : "?"}</strong><small>R${Number(player.user_id === V16_ONLINE.user?.id ? state.idx+1 : player.current_round || 0)}/${state.selected.length}</small></div>`).join("")}</div>${v164ReactionDock()}</div><div class="hud"><div class="hud-bars">${meterRow("Round Progress",progress,"meter-progress","progressBar")}${state.playerMode === "senior" ? "" : meterRow("Timer",state.timeLeft,"meter-time","timeBar")}${meterRow("Trust Shield",state.trust,"meter-good","trustBar")}${meterRow("Fraudster Pressure",state.fraudster,"meter-danger","fraudBar")}</div><div class="hud-stats"><div class="stat-pill">Score <strong>${state.score}</strong></div><div class="stat-pill">Combo <strong>${state.streak}</strong></div><div class="stat-pill">Mistakes <strong>${state.mistakes}</strong></div></div></div>`;
+  }
+
+  v16UpdateVersusHud = function v164Override_v16UpdateVersusHud() {
+    const match = V16_ONLINE.match;
+    if (!match?.roomMode) return v161LegacyUpdateVersusHud();
+    match.players = V16_ONLINE.room?.players || match.players || [];
+    const host = $("#roomHudRanks"); if (!host) return;
+    const players = v162RoomPlayersSorted(match.players).slice(0,8);
+    host.innerHTML = players.map((player,index) => `<div class="${player.user_id === V16_ONLINE.user?.id ? "you" : ""}"><b>${index+1}</b><span>${esc(player.username)}</span><strong>${v164ScoresVisible(match,player) ? Number(player.user_id === V16_ONLINE.user?.id ? state.score : player.score || 0).toLocaleString() : "?"}</strong><small>R${Number(player.user_id === V16_ONLINE.user?.id ? Math.min(state.idx+1,state.selected.length) : player.current_round || 0)}/${state.selected.length}</small></div>`).join("");
+    const teamStrip = $(".v164-team-score-strip");
+    if (teamStrip && match.teamMode) teamStrip.innerHTML = v164TeamTotals(players).map((team) => `<div><span>TEAM ${team.team}</span><strong>${team.score.toLocaleString()}</strong><small>${team.players.map((p)=>esc(p.username)).join(" + ") || "Waiting"}</small></div>`).join("");
+    v164WireReactionDock($("#versusHud") || document);
+  }
+
+  v16BroadcastMatchProgress = function v164Override_v16BroadcastMatchProgress(success) {
+    const match = V16_ONLINE.match;
+    if (!match?.roomMode) return v161LegacyBroadcastMatchProgress(success);
+    match.localScore = Number(state.score || 0);
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+    if (!client || !match.roomId) return;
+    const round = Math.min(state.idx + 1, state.selected.length);
+    client.rpc(config.updateRoomRpc, { p_room_id: match.roomId, p_score: match.localScore, p_current_round: round, p_finished: false }).catch?.(() => {});
+    V16_ONLINE.roomChannel?.send({ type: "broadcast", event: "progress", payload: { userId: V16_ONLINE.user?.id, score: match.localScore, round, finished: false } }).catch?.(() => {});
+    const me = (V16_ONLINE.room?.players || []).find((p) => p.user_id === V16_ONLINE.user?.id); if (me) { me.score = match.localScore; me.current_round = round; }
+    v16UpdateVersusHud();
+  }
+
+  /* ============================================================
+     V16.4N) Safe Spectator Dashboard + Waiting Microgame
+     ============================================================ */
+  function v164SpectatorOptions(players) {
+    return players.filter((p) => p.user_id !== V16_ONLINE.user?.id && !p.finished && !p.left_at);
+  }
+
+  function v164RenderSpectatorPanel() {
+    const host = $("#v164SpectatorPanel"); const match = V16_ONLINE.match;
+    if (!host || !match?.roomMode) return;
+    const players = v162RoomPlayersSorted(V16_ONLINE.room?.players || match.players || []);
+    const active = v164SpectatorOptions(players);
+    if (!active.length) { host.innerHTML = `<strong>Everyone has finished.</strong>`; return; }
+    const selectedId = V16_ONLINE.spectatingUserId && active.some((p)=>p.user_id === V16_ONLINE.spectatingUserId) ? V16_ONLINE.spectatingUserId : active[0].user_id;
+    V16_ONLINE.spectatingUserId = selectedId;
+    const player = active.find((p)=>p.user_id === selectedId);
+    const roundIndex = clamp(Number(player.current_round || 0), 0, match.roundIds.length - 1);
+    const round = ROUNDS.find((item) => item.id === match.roundIds[roundIndex]);
+    host.innerHTML = `<div class="v164-spectator-tabs">${active.map((p) => `<button class="${p.user_id === selectedId ? "active" : ""}" data-v164-spectate="${esc(p.user_id)}">${esc(p.username)}</button>`).join("")}</div><div class="v164-spectator-card"><div><span>Watching progress—not their screen</span><strong>${esc(player.username)}</strong><p>${esc(round?.category || "Challenge")} · ${esc(round?.title || "Loading next round")}</p></div><div class="v164-spectator-progress"><b>${Number(player.current_round || 0)} / ${match.roundIds.length}</b><div><i style="width:${(Number(player.current_round || 0)/match.roundIds.length)*100}%"></i></div><small>${match.scoreVisibility === "final" ? "Score hidden until finish" : `${Number(player.score || 0).toLocaleString()} points`}</small></div></div>`;
+    $$('[data-v164-spectate]', host).forEach((button) => on(button, "click", () => { V16_ONLINE.spectatingUserId = button.dataset.v164Spectate; v164RenderSpectatorPanel(); }));
+  }
+
+  function v164StartWaitingGame() {
+    const field = $("#v164WaitingField"); const scoreNode = $("#v164WaitingScore");
+    if (!field) return;
+    let points = 0;
+    function spawn() {
+      if (!$("#v164WaitingField") || state.runMode === "versus" && !V16_ONLINE.match?.localFinished) return;
+      const target = document.createElement("button");
+      const safe = Math.random() > 0.35;
+      target.className = `v164-wait-target ${safe ? "safe" : "scam"}`;
+      target.textContent = safe ? "🛡️" : "🕵️";
+      target.style.left = `${5 + Math.random()*86}%`; target.style.top = `${8 + Math.random()*72}%`;
+      target.addEventListener("click", () => { points += safe ? 1 : -1; if (scoreNode) scoreNode.textContent = String(points); target.remove(); });
+      field.appendChild(target); setTimeout(() => target.remove(), 1500); setTimeout(spawn, 650);
+    }
+    spawn();
+  }
+
+  v162ShowRoomResults = async function v164Override_v162ShowRoomResults(lost) {
+    const match = V16_ONLINE.match;
+    if (!match?.roomMode) return showHome();
+    match.localFinished = true; match.localScore = Number(state.score || 0);
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+    await client.rpc(config.updateRoomRpc, { p_room_id: match.roomId, p_score: match.localScore, p_current_round: match.roundIds.length, p_finished: true }).catch?.(() => {});
+    V16_ONLINE.roomChannel?.send({ type: "broadcast", event: "progress", payload: { userId: V16_ONLINE.user?.id, score: match.localScore, round: match.roundIds.length, finished: true } }).catch?.(() => {});
+    render(`<section class="screen versus-results-screen">${topbar()}<div class="panel versus-results-panel room-results-panel v164-waiting-results"><span class="eyebrow">Room ${esc(match.roomCode)}</span><h1 id="roomResultTitle">Your run is complete.</h1><p id="roomResultStatus">Live standings continue while other players finish.</p><div class="room-final-self"><span>Your score</span><strong>${match.localScore.toLocaleString()}</strong><b>${esc(v16GetActiveProfile().username)}</b></div><div class="v164-wait-grid"><section><h2>Live standings</h2><div class="room-final-standings" id="roomFinalStandings"></div></section><section><h2>Follow another player</h2><div id="v164SpectatorPanel"></div><p class="small muted">This shows only round metadata and progress—not video, camera, taps, or private screen content.</p></section><section><h2>While you wait</h2><p>Tap shields and avoid fraudsters. This waiting score is just for fun.</p><div class="v164-wait-score">Waiting score: <strong id="v164WaitingScore">0</strong></div><div class="v164-waiting-field" id="v164WaitingField"></div></section></div>${v164ReactionDock()}<div class="button-row"><button class="btn btn-primary" id="returnRoomHubBtn">Leave Room</button><button class="btn" id="roomResultsHomeBtn">Home</button></div></div></section>`);
+    wireTopbar(); v164WireReactionDock();
+    on($("#returnRoomHubBtn"), "click", async () => { await v162LeaveRoom(); showMultiplayerLobby(); });
+    on($("#roomResultsHomeBtn"), "click", async () => { await v162LeaveRoom(); showHome(); });
+    await v162FetchRoomState().catch(() => {}); v162RenderRoomResults(); v164RenderSpectatorPanel(); v164StartWaitingGame();
+  }
+
+  v162RenderRoomResults = function v164Override_v162RenderRoomResults() {
+    const host = $("#roomFinalStandings"); const match = V16_ONLINE.match;
+    if (!host || !match?.roomMode) return;
+    const players = v162RoomPlayersSorted(V16_ONLINE.room?.players || match.players || []).filter((p) => !p.left_at || p.finished);
+    const allFinished = players.length > 0 && players.every((p) => p.finished || p.left_at);
+    const meIndex = players.findIndex((p) => p.user_id === V16_ONLINE.user?.id);
+    host.innerHTML = players.map((player,index) => `<article class="room-final-row ${player.user_id === V16_ONLINE.user?.id ? "you" : ""}"><span class="room-final-rank">${index===0 ? "🏆" : `#${index+1}`}</span><div><strong>${esc(player.username)}${match.teamMode ? ` · Team ${Number(player.team_no||1)}` : ""}</strong><small>${player.finished ? "Finished" : `Round ${Number(player.current_round||0)}/${match.roundIds.length}`}</small></div><b>${match.scoreVisibility === "final" && !player.finished ? "?" : Number(player.score||0).toLocaleString()}</b></article>`).join("");
+    const title = $("#roomResultTitle"); const status = $("#roomResultStatus");
+    if (allFinished) {
+      if (match.teamMode) {
+        const totals = v164TeamTotals(players).sort((a,b)=>b.score-a.score); const myTeam = Number(players.find((p)=>p.user_id===V16_ONLINE.user?.id)?.team_no||1); const won = totals[0]?.team === myTeam && totals[0]?.score !== totals[1]?.score;
+        if (title) title.textContent = won ? `Team ${myTeam} wins!` : totals[0]?.score === totals[1]?.score ? "Team match tied!" : `Team ${totals[0]?.team} wins.`;
+      } else if (title) title.textContent = meIndex === 0 ? "You won the room!" : `You finished #${meIndex + 1}.`;
+      if (status) status.textContent = "All players finished. Final standings are locked.";
+    } else { if (title) title.textContent = "You finished—others are still playing."; if (status) status.textContent = "Choose a player to follow or play the waiting minigame."; }
+    v164RenderSpectatorPanel();
+  }
+
+  v16ExitMatch = function v164Override_v16ExitMatch() {
+    if (!V16_ONLINE.match?.roomMode) return v163ExitMatch();
+    V16_ONLINE.match = null; state.multiplayer = null; V16_ONLINE.spectatingUserId = null;
+  }
+
+  /* ============================================================
+     V16.4O) Updated How-to-Play Copy
+     ============================================================ */
+  showHow = function v164Override_showHow() {
+    const sections = [
+      ["🎮","Arcade Run",`${V164_REGULAR_ROUNDS} varied rounds lead to one final boss. This mode has its own leaderboard.`],
+      ["♾️","Endless Mode","Rounds continue until Trust reaches zero. Endless scores and rounds survived are ranked separately."],
+      ["📱","Phone controls","Every movement game includes large touch controls. Optional Phone Tilt can steer supported games after permission."],
+      ["🌎","Online rooms","Create a six-character room, join a code, or search for players. Hosts choose reading pace and score visibility."],
+      ["🤝","2v2 teams","Create a private 2v2 room or use Team Search. Team totals combine both teammates’ scores."],
+      ["💬","Safe reactions","Online play has preset reactions only. There is no free-text chat."],
+      ["👀","Finish early","Follow another player’s round progress or use the waiting minigame. The game never shares their actual screen."],
+      ["🏛️","Senior-Friendly play","Choose Senior-Friendly or tap A+ for larger text, larger buttons, calmer motion, and relaxed pacing."],
+      ["🔐","Profiles","Your local profile password protects saves and account changes. Other players see only the gamer tag."]
+    ];
+    render(`<section class="screen">${topbar()}<div class="panel how-panel"><header class="how-hero"><div><span class="eyebrow">Player guide</span><h1>Pick a mode and start safely.</h1><p>Everything important is explained here without setup or developer notes.</p></div><button class="btn btn-primary" id="howStartBtn">Choose Arcade Settings</button></header><div class="how-grid">${sections.map(([icon,title,copy],index)=>`<article class="how-card"><span class="how-number">${index+1}</span><div class="how-icon">${icon}</div><strong>${esc(title)}</strong><p>${esc(copy)}</p></article>`).join("")}</div><div class="button-row"><button class="btn" id="howBackBtn">Back Home</button><button class="btn btn-demo" id="howDemoBtn">Try Demo</button><button class="btn btn-secondary" id="howVsBtn">Online Play</button></div></div></section>`);
+    wireTopbar(); on($("#howBackBtn"),"click",showHome); on($("#howStartBtn"),"click",()=>v16RequireUnlocked(showSetup)); on($("#howDemoBtn"),"click",()=>v16RequireUnlocked(showDemoMode)); on($("#howVsBtn"),"click",()=>v16RequireUnlocked(showMultiplayerLobby));
+  }
+
+  /* Install V16.4 runtime helpers before the first V16.4 screen. */
+  v164InstallOrientationTracking();
+  v164ApplyAccessibility();
+
+
+
+
+  /* ============================================================
+     18E) V16.5 LIVE-ROOM RELIABILITY + REMATCH + COMPUTER PLAYERS
+     This section is additive. V16.4 remains above and is preserved.
+     ============================================================ */
+
+  const V165_CLOUD_SESSION_KEY = "ffV165CloudSession";
+  const V165_RESULT_SECONDS = 90;
+  const V165_SEARCH_SECONDS = 24;
+  const V165_REACTION_LIFETIME = 3800;
+  const V165_BOT_NAMES = ["Nova", "Pixel", "Cipher", "Orbit", "Echo", "Byte", "Iris Bot", "Shield"];
+
+  const v164GetGlobalConfigV165 = v16GetGlobalConfig;
+  const v164FetchRoomStateV165 = v162FetchRoomState;
+  const v164SubscribeRoomV165 = v162SubscribeToRoom;
+  const v164LeaveRoomV165 = v162LeaveRoom;
+  const v164RenderRoomLobbyV165 = v162RenderRoomLobby;
+  const v164ShowRoomLobbyV165 = v162ShowRoomLobby;
+  const v164BeginRoomMatchV165 = v162BeginRoomMatch;
+  const v164ShowRoomResultsV165 = v162ShowRoomResults;
+  const v164RenderRoomResultsV165 = v162RenderRoomResults;
+  const v164BroadcastProgressV165 = v16BroadcastMatchProgress;
+  const v164HudV165 = hud;
+  const v164UpdateHudV165 = v16UpdateVersusHud;
+  const v164ShowHomeV165 = showHome;
+  const v164AccountSectionV165 = v16AccountSectionHtml;
+  const v164UpdateProfileV165 = v16UpdateProfile;
+  const v164RenderRoundV165 = renderRound;
+  const v164StartMatchmakingV165 = v164StartMatchmaking;
+  const v164EnterMatchedRoomV165 = v164EnterMatchedRoom;
+  const v164ClearRoomTimersV165 = v162ClearRoomTimers;
+  const v164StartRoomMatchV165 = v162StartRoomMatch;
+  const v164SfxV165 = sfx;
+
+  /* ------------------------------------------------------------
+     V16.5A) Expanded RPC configuration
+     ------------------------------------------------------------ */
+  v16GetGlobalConfig = function v165Override_v16GetGlobalConfig() {
+    const base = v164GetGlobalConfigV165();
+    const config = window.FF_ONLINE_CONFIG || window.FF_LEADERBOARD_CONFIG || {};
+    return {
+      ...base,
+      startRoomV165Rpc: String(config.startRoomV165Rpc || "ff_start_room_v165"),
+      updateRoomV165Rpc: String(config.updateRoomV165Rpc || "ff_update_room_progress_v165"),
+      sendReactionRpc: String(config.sendReactionRpc || "ff_send_room_reaction"),
+      rematchVoteRpc: String(config.rematchVoteRpc || "ff_vote_room_rematch"),
+      rematchStatusRpc: String(config.rematchStatusRpc || "ff_room_rematch_status"),
+      prepareRematchRpc: String(config.prepareRematchRpc || "ff_prepare_room_rematch"),
+      matchmakingJoinV165Rpc: String(config.matchmakingJoinV165Rpc || "ff_matchmaking_join_v165"),
+      matchmakingCancelV165Rpc: String(config.matchmakingCancelV165Rpc || "ff_matchmaking_cancel_v165"),
+      extendSearchRpc: String(config.extendSearchRpc || "ff_extend_matchmaking_room"),
+      fillBotsRpc: String(config.fillBotsRpc || "ff_fill_room_with_bots"),
+      updateBotRpc: String(config.updateBotRpc || "ff_update_room_bot"),
+      cloudCreateRpc: String(config.cloudCreateRpc || "ff_cloud_account_create"),
+      cloudLoginRpc: String(config.cloudLoginRpc || "ff_cloud_account_login"),
+      cloudSaveRpc: String(config.cloudSaveRpc || "ff_cloud_account_save"),
+      cloudLogoutRpc: String(config.cloudLogoutRpc || "ff_cloud_account_logout")
+    };
+  };
+
+  /* ------------------------------------------------------------
+     V16.5B) Distinct sound effects, especially reactions
+     ------------------------------------------------------------ */
+  function v165Tone(frequency, endFrequency, duration = .22, type = "sine", volume = .09) {
+    if (!state.soundOn) return;
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(.0001, now);
+    gain.gain.exponentialRampToValueAtTime(volume, now + .012);
+    gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
+    gain.connect(ctx.destination);
+    const oscillator = ctx.createOscillator();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, now);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), now + duration);
+    oscillator.connect(gain);
+    oscillator.start(now);
+    oscillator.stop(now + duration + .02);
+  }
+
+  function v165ReactionSfx(key, incoming = false) {
+    const tones = {
+      gg: [660, 990, "triangle"], lol: [520, 760, "square"], think: [310, 270, "sine"],
+      laugh: [740, 1080, "sine"], wow: [390, 880, "sawtooth"], clap: [880, 620, "square"],
+      fire: [250, 720, "sawtooth"], shield: [460, 920, "triangle"]
+    };
+    const [start, end, type] = tones[key] || [520, 760, "sine"];
+    v165Tone(incoming ? start * .88 : start, incoming ? end * .92 : end, .25, type, incoming ? .075 : .10);
+  }
+
+  sfx = function v165Override_sfx(name) {
+    if (String(name).startsWith("reaction:")) {
+      const [, key, direction] = String(name).split(":");
+      return v165ReactionSfx(key, direction === "incoming");
+    }
+    if (name === "rematch") return v165Tone(430, 980, .34, "triangle", .11);
+    if (name === "matchFound") return v165Tone(540, 1240, .42, "sine", .11);
+    if (name === "botJoin") return v165Tone(280, 610, .28, "square", .08);
+    return v164SfxV165(name);
+  };
+
+  /* ------------------------------------------------------------
+     V16.5C) Reactions delivered through Broadcast + database fallback
+     ------------------------------------------------------------ */
+  function v165ReactionStream() {
+    let host = $("#v165ReactionStream");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "v165ReactionStream";
+      host.className = "v165-reaction-stream";
+      document.body.appendChild(host);
+    }
+    return host;
+  }
+
+  function v165ShowReaction(payload, incoming = true) {
+    if (!payload || !V164_ALLOWED_REACTIONS.has(payload.key)) return;
+    V16_ONLINE.seenReactionIds ||= new Set();
+    if (payload.id && V16_ONLINE.seenReactionIds.has(String(payload.id))) return;
+    if (payload.id) V16_ONLINE.seenReactionIds.add(String(payload.id));
+    const node = document.createElement("div");
+    node.className = "v165-floating-reaction";
+    node.innerHTML = `<strong>${esc(payload.username || "Player")}</strong><span>${esc(V164_ALLOWED_REACTIONS.get(payload.key))}</span>`;
+    v165ReactionStream().appendChild(node);
+    sfx(`reaction:${payload.key}:${incoming ? "incoming" : "outgoing"}`);
+    setTimeout(() => node.remove(), V165_REACTION_LIFETIME);
+  }
+
+  v164ShowReaction = v165ShowReaction;
+
+  v164SendReaction = async function v165Override_v164SendReaction(key) {
+    if (!V164_ALLOWED_REACTIONS.has(key) || !V16_ONLINE.room?.id) return;
+    const now = Date.now();
+    if (now - Number(V16_ONLINE.lastReactionAt || 0) < 1200) return toast("Please wait before sending another reaction.");
+    V16_ONLINE.lastReactionAt = now;
+    const payload = { key, username: v16GetActiveProfile().username, userId: V16_ONLINE.user?.id, sentAt: now };
+    v165ShowReaction(payload, false);
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    if (client) {
+      const { data } = await client.rpc(config.sendReactionRpc, { p_room_id: V16_ONLINE.room.id, p_reaction_key: key }).catch(() => ({ data: null }));
+      if (data?.id) V16_ONLINE.seenReactionIds?.add(String(data.id));
+    }
+    await V16_ONLINE.roomChannel?.send({ type: "broadcast", event: "reaction_v165", payload }).catch?.(() => {});
+  };
+
+  v164WireReactionDock = function v165Override_v164WireReactionDock(root = document) {
+    $$('[data-v164-reaction]', root).forEach((button) => on(button, "click", () => v164SendReaction(button.dataset.v164Reaction)));
+  };
+
+  function v165ProcessReactionRows(rows = []) {
+    [...rows].reverse().forEach((row) => {
+      if (row.user_id === V16_ONLINE.user?.id) {
+        if (row.id) (V16_ONLINE.seenReactionIds ||= new Set()).add(String(row.id));
+        return;
+      }
+      v165ShowReaction({ id: row.id, key: row.reaction_key, username: row.username, userId: row.user_id }, true);
+    });
+  }
+
+  /* ------------------------------------------------------------
+     V16.5D) One canonical live room state: humans, computers, reactions
+     ------------------------------------------------------------ */
+  function v165BotAsPlayer(bot) {
+    return {
+      ...bot,
+      user_id: `bot:${bot.bot_id}`,
+      is_bot: true,
+      is_host: false,
+      left_at: null,
+      last_seen: bot.updated_at || bot.joined_at
+    };
+  }
+
+  function v165Contestants() {
+    const humans = (V16_ONLINE.room?.players || []).filter((player) => !player.left_at).map((player) => ({ ...player, is_bot: false }));
+    const bots = (V16_ONLINE.room?.bots || []).map(v165BotAsPlayer);
+    return v162RoomPlayersSorted([...humans, ...bots]);
+  }
+
+  function v165ContestantFinished(player) {
+    return Boolean(player.finished || player.left_at);
+  }
+
+  function v165EveryoneFinished() {
+    const players = v165Contestants();
+    return players.length > 0 && players.every(v165ContestantFinished);
+  }
+
+  v162FetchRoomState = async function v165Override_v162FetchRoomState() {
+    const client = v16SupabaseClient();
+    const room = V16_ONLINE.room;
+    if (!client || !room?.id) return null;
+    const [roomResponse, playersResponse, botsResponse, reactionsResponse] = await Promise.all([
+      client.from("ff_rooms").select("id,code,host_user_id,status,max_players,round_count,round_ids,current_round,starts_at,created_at,expires_at,finished_at,settings").eq("id", room.id).single(),
+      client.from("ff_room_players").select("room_id,user_id,username,is_host,team_no,score,current_round,finished,joined_at,last_seen,left_at").eq("room_id", room.id).order("score", { ascending: false }).order("joined_at", { ascending: true }),
+      client.from("ff_room_bots").select("room_id,bot_id,username,team_no,score,current_round,finished,skill_seed,joined_at,updated_at").eq("room_id", room.id).order("score", { ascending: false }),
+      client.from("ff_room_reactions").select("id,room_id,user_id,username,reaction_key,created_at").eq("room_id", room.id).order("created_at", { ascending: false }).limit(16)
+    ]);
+    if (roomResponse.error) throw roomResponse.error;
+    if (playersResponse.error) throw playersResponse.error;
+    room.row = roomResponse.data;
+    room.code = roomResponse.data.code;
+    room.players = playersResponse.data || [];
+    room.bots = botsResponse.error ? [] : (botsResponse.data || []);
+    if (!reactionsResponse.error) v165ProcessReactionRows(reactionsResponse.data || []);
+    if (V16_ONLINE.match?.roomMode) V16_ONLINE.match.players = v165Contestants();
+    v162RenderRoomLobby();
+    v16UpdateVersusHud();
+    v162RenderRoomResults();
+    v164RenderSpectatorPanel();
+    if (room.row.status === "playing" && room.row.round_ids?.length && (!room.matchStarted || V16_ONLINE.match?.roomGeneration !== Number(room.row.settings?.rematch_generation || 0))) {
+      room.matchStarted = true;
+      v162BeginRoomMatch(room.row);
+    }
+    if (room.row.status === "cancelled") {
+      toast("The room closed.");
+      v162ResetRoomLocalState();
+      showMultiplayerLobby();
+    }
+    return room;
+  };
+
+  v162SubscribeToRoom = async function v165Override_v162SubscribeToRoom() {
+    const client = v16SupabaseClient();
+    const room = V16_ONLINE.room;
+    if (!client || !room?.id || !V16_ONLINE.user) return;
+    v162DisconnectRoomChannel();
+    const channel = client.channel(`ff-room-v165-${room.id}`);
+    V16_ONLINE.roomChannel = channel;
+    const refresh = () => v162ScheduleRoomRefresh(15);
+    channel
+      .on("postgres_changes", { event: "*", schema: "public", table: "ff_rooms", filter: `id=eq.${room.id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "ff_room_players", filter: `room_id=eq.${room.id}` }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "ff_room_bots", filter: `room_id=eq.${room.id}` }, refresh)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "ff_room_reactions", filter: `room_id=eq.${room.id}` }, ({ new: row }) => v165ProcessReactionRows([row]))
+      .on("postgres_changes", { event: "*", schema: "public", table: "ff_room_rematch_votes", filter: `room_id=eq.${room.id}` }, () => { refresh(); v165RefreshRematchStatus(); })
+      .on("broadcast", { event: "reaction" }, ({ payload }) => v165ShowReaction(payload, true))
+      .on("broadcast", { event: "reaction_v165" }, ({ payload }) => v165ShowReaction(payload, true))
+      .on("broadcast", { event: "progress" }, ({ payload }) => {
+        if (!payload?.userId || payload.userId === V16_ONLINE.user?.id) return;
+        const player = (V16_ONLINE.room?.players || []).find((item) => item.user_id === payload.userId);
+        if (player) {
+          player.score = Math.max(Number(player.score || 0), Number(payload.score || 0));
+          player.current_round = Math.max(Number(player.current_round || 0), Number(payload.round || 0));
+          player.finished = Boolean(player.finished || payload.finished);
+        }
+        v16UpdateVersusHud();
+        v162RenderRoomResults();
+      });
+    channel.subscribe((status) => {
+      const node = $("#roomRealtimeStatus");
+      if (node) node.textContent = status === "SUBSCRIBED" ? "Live updates connected" : status;
+      if (status === "SUBSCRIBED") v162ScheduleRoomRefresh(0);
+    });
+    const config = v16GetGlobalConfig();
+    V16_ONLINE.roomHeartbeatTimer = setInterval(() => client.rpc(config.heartbeatRoomRpc, { p_room_id: room.id }).catch?.(() => {}), 30000);
+    V16_ONLINE.roomLivePoll = setInterval(() => v162FetchRoomState().catch(() => {}), 900);
+  };
+
+  /* ------------------------------------------------------------
+     V16.5E) Reliable live score/progress writes
+     ------------------------------------------------------------ */
+  async function v165PushProgress(finished = false) {
+    const match = V16_ONLINE.match;
+    if (!match?.roomMode || !match.roomId) return;
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    if (!client) return;
+    match.localScore = Number(state.score || match.localScore || 0);
+    const round = finished ? match.roundIds.length : Math.min(state.idx + 1, match.roundIds.length);
+    const me = (V16_ONLINE.room?.players || []).find((p) => p.user_id === V16_ONLINE.user?.id);
+    if (me) { me.score = match.localScore; me.current_round = round; me.finished = finished; }
+    v16UpdateVersusHud();
+    const payload = { p_room_id: match.roomId, p_score: match.localScore, p_current_round: round, p_finished: finished };
+    const { error } = await client.rpc(config.updateRoomV165Rpc, payload).catch((error) => ({ error }));
+    if (error) console.warn("Live room progress update failed:", error);
+    await V16_ONLINE.roomChannel?.send({ type: "broadcast", event: "progress", payload: { userId: V16_ONLINE.user?.id, score: match.localScore, round, finished } }).catch?.(() => {});
+    v162ScheduleRoomRefresh(0);
+  }
+
+  v16BroadcastMatchProgress = function v165Override_v16BroadcastMatchProgress(success) {
+    if (!V16_ONLINE.match?.roomMode) return v164BroadcastProgressV165(success);
+    clearTimeout(V16_ONLINE.progressPushTimer);
+    V16_ONLINE.progressPushTimer = setTimeout(() => v165PushProgress(false), 40);
+  };
+
+  /* ------------------------------------------------------------
+     V16.5F) Live scoreboard showing human/computer and progression
+     ------------------------------------------------------------ */
+  function v165StandingsRows(players, totalRounds) {
+    return `<div class="v165-live-board">${players.map((player, index) => {
+      const round = clamp(Number(player.user_id === V16_ONLINE.user?.id && !player.is_bot ? state.idx + 1 : player.current_round || 0), 0, totalRounds);
+      const score = Number(player.user_id === V16_ONLINE.user?.id && !player.is_bot ? state.score : player.score || 0);
+      return `<div class="v165-live-row ${player.user_id === V16_ONLINE.user?.id ? "you" : ""}"><b>${index + 1}</b><span class="identity"><strong>${esc(player.username)}${player.user_id === V16_ONLINE.user?.id ? " · You" : ""}</strong><small>${player.is_bot ? "Computer player" : player.is_host ? "Human · Host" : "Human player"}${V16_ONLINE.match?.teamMode ? ` · Team ${Number(player.team_no || 1)}` : ""}</small></span><span class="v165-kind-pill ${player.is_bot ? "computer" : ""}">${player.is_bot ? "CPU" : "Human"}</span><span class="v165-progress-mini"><strong>${score.toLocaleString()}</strong><div><i style="width:${totalRounds ? (round / totalRounds) * 100 : 0}%"></i></div><small>R${round}/${totalRounds}</small></span></div>`;
+    }).join("")}</div>`;
+  }
+
+  hud = function v165Override_hud() {
+    const match = V16_ONLINE.match;
+    if (!(state.runMode === "versus" && match?.roomMode)) return v164HudV165();
+    const progress = clamp(Math.round((state.idx / Math.max(1, state.selected.length)) * 100), 0, 100);
+    const players = v165Contestants();
+    return `<div class="room-versus-hud" id="versusHud"><div class="room-hud-title"><span>ROOM ${esc(match.roomCode)}</span><strong>${match.teamMode ? "LIVE TEAM RACE" : "LIVE STANDINGS"}</strong><small>${players.length} competitors</small></div><div id="roomHudRanks">${v165StandingsRows(players, state.selected.length)}</div>${v164ReactionDock()}</div><div class="hud"><div class="hud-bars">${meterRow("Round Progress", progress, "meter-progress", "progressBar")}${state.playerMode === "senior" ? "" : meterRow("Timer", state.timeLeft, "meter-time", "timeBar")}${meterRow("Trust Shield", state.trust, "meter-good", "trustBar")}${meterRow("Fraudster Pressure", state.fraudster, "meter-danger", "fraudBar")}</div><div class="hud-stats"><div class="stat-pill">Score <strong>${state.score}</strong></div><div class="stat-pill">Combo <strong>${state.streak}</strong></div><div class="stat-pill">Mistakes <strong>${state.mistakes}</strong></div></div></div>`;
+  };
+
+  v16UpdateVersusHud = function v165Override_v16UpdateVersusHud() {
+    const match = V16_ONLINE.match;
+    if (!match?.roomMode) return v164UpdateHudV165();
+    match.players = v165Contestants();
+    const host = $("#roomHudRanks");
+    if (host) host.innerHTML = v165StandingsRows(match.players, Math.max(1, state.selected.length || match.roundIds.length));
+    v164WireReactionDock($("#versusHud") || document);
+  };
+
+  /* ------------------------------------------------------------
+     V16.5G) Human-like computer competitors
+     ------------------------------------------------------------ */
+  function v165IsHost() { return v162RoomIsHost(); }
+
+  async function v165FillWithBots(format) {
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    const roomId = V16_ONLINE.room?.id;
+    if (!client || !roomId) return;
+    const { error } = await client.rpc(config.fillBotsRpc, { p_room_id: roomId, p_format: format });
+    if (error) return toast(v162FriendlyOnlineError(error));
+    sfx("botJoin");
+    await v162FetchRoomState();
+    if (v165IsHost()) setTimeout(() => v162StartRoomMatch(), 450);
+  }
+
+  function v165StartBotSimulation(match) {
+    if (!v165IsHost() || V16_ONLINE.botSimulation || !(V16_ONLINE.room?.bots || []).length) return;
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    const startAt = match.startAt;
+    const timerFactor = match.timerMode === "no_rush" ? 1.42 : match.timerMode === "relaxed" ? 1.2 : match.timerMode === "challenge" ? .82 : 1;
+    const duration = Math.max(18000, match.roundIds.length * 7200 * timerFactor);
+    const interval = setInterval(async () => {
+      if (!V16_ONLINE.match?.roomMode || V16_ONLINE.match.roomId !== match.roomId) return clearInterval(interval);
+      const elapsed = Math.max(0, Date.now() - startAt);
+      for (const bot of V16_ONLINE.room?.bots || []) {
+        if (bot.finished) continue;
+        const personality = .84 + ((Number(bot.skill_seed || 1) % 29) / 100);
+        const noisy = clamp((elapsed / duration) * personality + (Math.sin(elapsed / 3200 + Number(bot.skill_seed || 0)) * .025), 0, 1);
+        const round = Math.min(match.roundIds.length, Math.floor(noisy * (match.roundIds.length + .8)));
+        const mistakes = Math.floor((1 - personality) * round * 2.2) + (Math.random() < .16 ? 1 : 0);
+        const score = Math.max(0, Math.floor(round * (640 + personality * 260) - mistakes * 135 + Math.random() * 90));
+        const finished = round >= match.roundIds.length;
+        bot.current_round = round; bot.score = Math.max(Number(bot.score || 0), score); bot.finished = finished;
+        client.rpc(config.updateBotRpc, { p_room_id: match.roomId, p_bot_id: bot.bot_id, p_score: bot.score, p_current_round: round, p_finished: finished }).catch?.(() => {});
+      }
+      v16UpdateVersusHud();
+      v162RenderRoomResults();
+      if (v165EveryoneFinished()) clearInterval(interval);
+    }, 1250);
+    V16_ONLINE.botSimulation = interval;
+  }
+
+  v162BeginRoomMatch = function v165Override_v162BeginRoomMatch(roomRow) {
+    v164BeginRoomMatchV165(roomRow);
+    if (V16_ONLINE.match) {
+      V16_ONLINE.match.roomGeneration = Number(roomRow.settings?.rematch_generation || 0);
+      V16_ONLINE.match.players = v165Contestants();
+      setTimeout(() => v165StartBotSimulation(V16_ONLINE.match), Math.max(0, V16_ONLINE.match.startAt - Date.now()) + 250);
+    }
+  };
+
+  /* ------------------------------------------------------------
+     V16.5H) Open matchmaking countdown, clean cancellation, fallback
+     ------------------------------------------------------------ */
+  function v165RemoveChoiceOverlay() { $("#v165ChoiceOverlay")?.remove(); }
+
+  function v165ShowSearchChoice() {
+    if ($("#v165ChoiceOverlay") || !V16_ONLINE.room?.id) return;
+    const mode = V16_ONLINE.room.row?.settings?.mode || "solo";
+    const overlay = document.createElement("div");
+    overlay.id = "v165ChoiceOverlay";
+    overlay.className = "v165-choice-overlay";
+    overlay.innerHTML = `<div class="v165-choice-dialog"><span class="eyebrow">Still searching</span><h2>What would you like to do?</h2><p>No suitable players joined before the search timer ended.</p><div class="v165-choice-grid"><button id="v165KeepSearching"><span>🔎</span><strong>Keep Searching</strong><small>Open another countdown</small></button><button id="v165GoHome"><span>⌂</span><strong>Go Home</strong><small>Leave the online room</small></button><button id="v165PlayComputers"><span>🤖</span><strong>Play vs Computers</strong><small>Start without waiting</small></button></div></div>`;
+    document.body.appendChild(overlay);
+    on($("#v165KeepSearching"), "click", async () => {
+      const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+      await client.rpc(config.extendSearchRpc, { p_room_id: V16_ONLINE.room.id, p_seconds: V165_SEARCH_SECONDS }).catch?.(() => {});
+      v165RemoveChoiceOverlay(); v162ScheduleRoomRefresh(0);
+    });
+    on($("#v165GoHome"), "click", async () => { v165RemoveChoiceOverlay(); await v162LeaveRoom(); showHome(); });
+    on($("#v165PlayComputers"), "click", () => {
+      if (mode === "team_2v2") return v165FillWithBots("team_2v2").then(v165RemoveChoiceOverlay);
+      overlay.querySelector(".v165-choice-dialog").innerHTML = `<span class="eyebrow">Computer match</span><h2>Choose the format.</h2><p>Computer players make occasional mistakes and react like competitors.</p><div class="v165-choice-grid"><button id="v165BotsFfa"><span>⚔️</span><strong>Free-for-All</strong><small>Everyone competes individually</small></button><button id="v165BotsTeams"><span>🤝</span><strong>2 vs 2</strong><small>Team scores are combined</small></button><button id="v165BotsBack"><span>←</span><strong>Back</strong><small>Return to choices</small></button></div>`;
+      on($("#v165BotsFfa"), "click", () => v165FillWithBots("solo").then(v165RemoveChoiceOverlay));
+      on($("#v165BotsTeams"), "click", () => v165FillWithBots("team_2v2").then(v165RemoveChoiceOverlay));
+      on($("#v165BotsBack"), "click", () => { v165RemoveChoiceOverlay(); v165ShowSearchChoice(); });
+    });
+  }
+
+  function v165StartLobbyDeadlineTimer() {
+    clearInterval(V16_ONLINE.searchDeadlineTimer);
+    const room = V16_ONLINE.room;
+    const settings = room?.row?.settings || {};
+    if (!settings.matchmaking || room.row.status !== "waiting") return;
+    const deadline = new Date(settings.matchmaking_deadline || Date.now() + V165_SEARCH_SECONDS * 1000).getTime();
+    const host = $("#roomHostPanel");
+    if (host && !$("#v165SearchCountdown")) host.insertAdjacentHTML("afterbegin", `<div class="v165-search-countdown" id="v165SearchCountdown"><span>Open lobby search</span><strong id="v165SearchSeconds">--</strong><small>Players may join until the timer ends.</small></div>`);
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      if ($("#v165SearchSeconds")) $("#v165SearchSeconds").textContent = `${left}s`;
+      if (left > 0) return;
+      clearInterval(V16_ONLINE.searchDeadlineTimer); V16_ONLINE.searchDeadlineTimer = null;
+      const contestants = v165Contestants();
+      const team = settings.mode === "team_2v2";
+      const enough = team ? contestants.length >= 4 : contestants.length >= 2;
+      if (enough && v165IsHost()) v162StartRoomMatch(); else v165ShowSearchChoice();
+    };
+    tick(); V16_ONLINE.searchDeadlineTimer = setInterval(tick, 250);
+  }
+
+  v164StartMatchmaking = async function v165Override_v164StartMatchmaking(mode) {
+    try {
+      await v162EnsureAnonymousOnlineSession();
+      V16_ONLINE.matchmakingCancelled = false;
+      V16_ONLINE.matchmakingToken = Number(V16_ONLINE.matchmakingToken || 0) + 1;
+      const token = V16_ONLINE.matchmakingToken;
+      const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+      const { data, error } = await client.rpc(config.matchmakingJoinV165Rpc, { p_username: v16GetActiveProfile().username, p_mode: mode, p_timer_mode: "relaxed" });
+      if (error) throw error;
+      if (V16_ONLINE.matchmakingCancelled || token !== V16_ONLINE.matchmakingToken) return;
+      if (data?.room_id) {
+        sfx("matchFound");
+        await v164EnterMatchedRoomV165(data.room_id, data.room_code);
+      }
+    } catch (error) { toast(v162FriendlyOnlineError(error)); }
+  };
+
+  v162LeaveRoom = async function v165Override_v162LeaveRoom(options = {}) {
+    const room = V16_ONLINE.room;
+    const matchmaking = Boolean(room?.row?.settings?.matchmaking && room?.row?.status === "waiting");
+    V16_ONLINE.matchmakingCancelled = true;
+    V16_ONLINE.matchmakingToken = Number(V16_ONLINE.matchmakingToken || 0) + 1;
+    clearInterval(V16_ONLINE.searchDeadlineTimer); V16_ONLINE.searchDeadlineTimer = null;
+    v165RemoveChoiceOverlay();
+    if (matchmaking && room?.id) {
+      const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+      await client?.rpc(config.matchmakingCancelV165Rpc, { p_room_id: room.id }).catch?.(() => {});
+      v162ResetRoomLocalState();
+      if (options.goHome) showHome();
+      return;
+    }
+    return v164LeaveRoomV165(options);
+  };
+
+  v162ClearRoomTimers = function v165Override_v162ClearRoomTimers() {
+    v164ClearRoomTimersV165();
+    clearInterval(V16_ONLINE.searchDeadlineTimer);
+    clearInterval(V16_ONLINE.resultCloseTimer);
+    clearInterval(V16_ONLINE.botSimulation);
+    clearTimeout(V16_ONLINE.progressPushTimer);
+    V16_ONLINE.searchDeadlineTimer = null;
+    V16_ONLINE.resultCloseTimer = null;
+    V16_ONLINE.botSimulation = null;
+    V16_ONLINE.progressPushTimer = null;
+  };
+
+  v162StartRoomMatch = async function v165Override_v162StartRoomMatch() {
+    const room = V16_ONLINE.room;
+    if (!room?.row || !v165IsHost()) return;
+    const button = $("#startRoomMatchBtn");
+    if (button) { button.disabled = true; button.textContent = "Starting…"; }
+    try {
+      const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+      const roundIds = v162SelectRoomRounds(room.row.round_count);
+      const { error } = await client.rpc(config.startRoomV165Rpc, { p_room_id: room.id, p_round_ids: roundIds });
+      if (error) throw error;
+      V16_ONLINE.room.matchStarted = false;
+      await v162FetchRoomState();
+    } catch (error) {
+      if (button) { button.disabled = false; button.textContent = "Start Match"; }
+      toast(v162FriendlyOnlineError(error));
+    }
+  };
+
+  /* ------------------------------------------------------------
+     V16.5I) Enhanced room lobby with humans/computers and search timer
+     ------------------------------------------------------------ */
+  v162RenderRoomLobby = function v165Override_v162RenderRoomLobby() {
+    const room = V16_ONLINE.room; const host = $("#roomLobbyPlayers"); const controls = $("#roomHostPanel");
+    if (!room || !host || !controls) return;
+    const row = room.row || {}; const settings = row.settings || {}; const teamMode = settings.mode === "team_2v2";
+    const contestants = v165Contestants();
+    if ($("#roomPlayerCount")) $("#roomPlayerCount").textContent = `${contestants.length} / ${Number(row.max_players || (teamMode ? 4 : 8))} competitors`;
+    if ($("#roomCodeText")) $("#roomCodeText").textContent = room.code || "------";
+    if ($("#v164RoomModeLabel")) $("#v164RoomModeLabel").textContent = teamMode ? "2v2 teams" : "Individual race";
+    host.innerHTML = contestants.length ? contestants.map((player,index) => `<article class="room-player-card ${player.user_id === V16_ONLINE.user?.id ? "you" : ""}"><div class="room-player-rank">${index+1}</div><div class="profile-avatar">${player.is_bot ? "🤖" : esc(String(player.username||"P").slice(0,1).toUpperCase())}</div><div><strong>${esc(player.username)}${player.user_id === V16_ONLINE.user?.id ? " · You" : ""}</strong><span>${player.is_bot ? "Computer" : player.is_host ? "Human · Host" : "Human"}${teamMode ? ` · Team ${Number(player.team_no || 1)}` : ""}</span></div><span class="room-ready-status">${row.status === "waiting" ? "Ready" : player.finished ? "Finished" : `Round ${Number(player.current_round || 0)}`}</span></article>`).join("") : `<div class="lobby-empty">Waiting for competitors…</div>`;
+    const isHost = v165IsHost();
+    if (row.status === "waiting") {
+      const teamControls = teamMode ? `<div class="v164-team-picker"><strong>Choose your team</strong><div><button class="btn btn-secondary btn-small" data-v164-team="1">Team 1</button><button class="btn btn-secondary btn-small" data-v164-team="2">Team 2</button></div></div>` : "";
+      const enough = teamMode ? contestants.length >= 4 : contestants.length >= 2;
+      controls.innerHTML = `${teamControls}<span class="eyebrow">${settings.matchmaking ? "Open matchmaking lobby" : isHost ? "Host controls" : "Waiting room"}</span><h2>${teamMode ? "Build two balanced teams." : "More players can join before the start."}</h2><div class="room-setting-summary"><span>⏱️ ${esc(String(settings.timer_mode || "relaxed").replace("_"," "))}</span><span>🏆 ${esc(String(settings.score_visibility || "live"))} scores</span><span>🎮 ${Number(row.round_count || 5)} rounds</span></div>${isHost ? `<button class="btn btn-good room-start-button" id="startRoomMatchBtn" ${enough ? "" : "disabled"}>Start Match</button><p class="small muted">${enough ? "You may start now." : teamMode ? "Four competitors are needed, or add computer players after the search timer." : "At least two competitors are needed."}</p>` : `<p>The host controls the synchronized start.</p>`}`;
+      $$('[data-v164-team]').forEach((button) => on(button, "click", () => v164SetTeam(button.dataset.v164Team)));
+      on($("#startRoomMatchBtn"), "click", v162StartRoomMatch);
+      v165StartLobbyDeadlineTimer();
+    } else {
+      controls.innerHTML = `<span class="eyebrow">${row.status === "playing" ? "Match active" : "Room complete"}</span><h2>${row.status === "playing" ? "Scores and progress update live." : "Final standings are ready."}</h2>${v165StandingsRows(contestants, Number(row.round_count || 5))}`;
+    }
+  };
+
+  /* ------------------------------------------------------------
+     V16.5J) Correct final state, rematch votes, and auto-close
+     ------------------------------------------------------------ */
+  async function v165RefreshRematchStatus() {
+    const roomId = V16_ONLINE.room?.id;
+    const host = $("#v165RematchPanel");
+    if (!roomId || !host) return;
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+    const { data, error } = await client.rpc(config.rematchStatusRpc, { p_room_id: roomId }).catch((error) => ({ error }));
+    if (error || !data) return;
+    V16_ONLINE.rematchStatus = data;
+    const votes = Number(data.votes || 0), needed = Number(data.needed || 0);
+    const percent = needed ? (votes / needed) * 100 : 0;
+    const count = $("#v165RematchCount"); if (count) count.textContent = `${votes}/${needed}`;
+    const meter = $("#v165RematchMeter"); if (meter) meter.style.width = `${percent}%`;
+    const button = $("#v165RematchBtn"); if (button) { button.disabled = Boolean(data.you_voted); button.textContent = data.you_voted ? "Rematch Vote Sent" : "Vote for Rematch"; }
+    if (data.all_voted && v165IsHost() && !V16_ONLINE.preparingRematch) {
+      V16_ONLINE.preparingRematch = true;
+      const roundIds = v162SelectRoomRounds(V16_ONLINE.room.row.round_count);
+      const { error: rematchError } = await client.rpc(config.prepareRematchRpc, { p_room_id: roomId, p_round_ids: roundIds });
+      if (!rematchError) { sfx("rematch"); V16_ONLINE.room.matchStarted = false; await v162FetchRoomState(); }
+      V16_ONLINE.preparingRematch = false;
+    }
+  }
+
+  async function v165VoteRematch() {
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig(); const roomId = V16_ONLINE.room?.id;
+    if (!client || !roomId) return;
+    const { error } = await client.rpc(config.rematchVoteRpc, { p_room_id: roomId });
+    if (error) return toast(v162FriendlyOnlineError(error));
+    sfx("rematch"); await v165RefreshRematchStatus();
+  }
+
+  function v165StartResultCloseCountdown() {
+    clearInterval(V16_ONLINE.resultCloseTimer);
+    V16_ONLINE.resultCloseAt ||= Date.now() + V165_RESULT_SECONDS * 1000;
+    const tick = async () => {
+      const left = Math.max(0, Math.ceil((V16_ONLINE.resultCloseAt - Date.now()) / 1000));
+      const node = $("#v165RoomCloseSeconds"); if (node) node.textContent = `${left}s`;
+      if (left > 0) return;
+      clearInterval(V16_ONLINE.resultCloseTimer); V16_ONLINE.resultCloseTimer = null;
+      await v162LeaveRoom(); showHome();
+    };
+    tick(); V16_ONLINE.resultCloseTimer = setInterval(tick, 500);
+  }
+
+  v162ShowRoomResults = async function v165Override_v162ShowRoomResults(lost) {
+    const match = V16_ONLINE.match;
+    if (!match?.roomMode) return showHome();
+    match.localFinished = true; match.localScore = Number(state.score || 0);
+    await v165PushProgress(true);
+    V16_ONLINE.resultCloseAt = Date.now() + V165_RESULT_SECONDS * 1000;
+    render(`<section class="screen versus-results-screen">${topbar()}<div class="panel versus-results-panel room-results-panel v164-waiting-results"><span class="eyebrow">Room ${esc(match.roomCode)}</span><h1 id="roomResultTitle">Your run is complete.</h1><p id="roomResultStatus">Updating final standings…</p><div class="room-final-self"><span>Your score</span><strong>${match.localScore.toLocaleString()}</strong><b>${esc(v16GetActiveProfile().username)}</b></div><div class="v164-wait-grid"><section><h2>Live standings</h2><div class="room-final-standings" id="roomFinalStandings"></div></section><section><h2>Follow progress</h2><div id="v164SpectatorPanel"></div><p class="small muted">Only score and round progress are shown.</p></section><section><h2>While you wait</h2><p>Tap shields and avoid fraudsters.</p><div class="v164-wait-score">Waiting score: <strong id="v164WaitingScore">0</strong></div><div class="v164-waiting-field" id="v164WaitingField"></div></section></div>${v164ReactionDock()}<div class="v165-rematch-panel" id="v165RematchPanel"><div><strong>Play this room again?</strong><p><span id="v165RematchCount">0/0</span> players want a rematch.</p><div class="v165-rematch-meter"><i id="v165RematchMeter" style="width:0%"></i></div></div><button class="btn btn-good" id="v165RematchBtn">Vote for Rematch</button></div><p class="v165-room-close-countdown">Room closes automatically in <span id="v165RoomCloseSeconds">${V165_RESULT_SECONDS}s</span>.</p><div class="button-row"><button class="btn btn-primary" id="returnRoomHubBtn">Leave Room</button><button class="btn" id="roomResultsHomeBtn">Home</button></div></div></section>`);
+    wireTopbar(); v164WireReactionDock();
+    on($("#v165RematchBtn"), "click", v165VoteRematch);
+    on($("#returnRoomHubBtn"), "click", async () => { await v162LeaveRoom(); showMultiplayerLobby(); });
+    on($("#roomResultsHomeBtn"), "click", async () => { await v162LeaveRoom(); showHome(); });
+    await v162FetchRoomState().catch(() => {});
+    v162RenderRoomResults(); v164RenderSpectatorPanel(); v164StartWaitingGame(); v165RefreshRematchStatus(); v165StartResultCloseCountdown();
+  };
+
+  v162RenderRoomResults = function v165Override_v162RenderRoomResults() {
+    const host = $("#roomFinalStandings"); const match = V16_ONLINE.match;
+    if (!host || !match?.roomMode) return;
+    const players = v165Contestants();
+    const allFinished = v165EveryoneFinished() || V16_ONLINE.room?.row?.status === "finished";
+    const meIndex = players.findIndex((p) => p.user_id === V16_ONLINE.user?.id);
+    host.innerHTML = players.map((player,index) => `<article class="room-final-row ${player.user_id === V16_ONLINE.user?.id ? "you" : ""}"><span class="room-final-rank">${index===0 ? "🏆" : `#${index+1}`}</span><div><strong>${esc(player.username)}${player.is_bot ? " · Computer" : player.user_id === V16_ONLINE.user?.id ? " · You" : " · Human"}${match.teamMode ? ` · Team ${Number(player.team_no||1)}` : ""}</strong><small>${player.finished ? "Finished" : `Round ${Number(player.current_round||0)}/${match.roundIds.length}`}</small></div><b>${Number(player.score||0).toLocaleString()}</b></article>`).join("");
+    const title = $("#roomResultTitle"), status = $("#roomResultStatus");
+    if (allFinished) {
+      if (match.teamMode) {
+        const totals = v164TeamTotals(players).sort((a,b)=>b.score-a.score); const myTeam = Number(players.find((p)=>p.user_id===V16_ONLINE.user?.id)?.team_no||1);
+        if (title) title.textContent = totals[0]?.score === totals[1]?.score ? "Team match tied!" : totals[0]?.team === myTeam ? `Team ${myTeam} wins!` : `Team ${totals[0]?.team} wins.`;
+      } else if (title) title.textContent = meIndex === 0 ? "You won the room!" : `You finished #${Math.max(1, meIndex + 1)}.`;
+      if (status) status.textContent = "Everyone finished. Final standings are locked.";
+    } else {
+      if (title) title.textContent = "You finished—some competitors are still playing.";
+      if (status) status.textContent = "Live standings and progress will update here.";
+    }
+    v164RenderSpectatorPanel(); v165RefreshRematchStatus();
+  };
+
+  /* ------------------------------------------------------------
+     V16.5K) Restored Fraudster home visual + leaderboard preview
+     ------------------------------------------------------------ */
+  async function v165PopulateHomeLeaderboard() {
+    const host = $("#v165HomeRanks"); if (!host) return;
+    let rows = v16GetProfiles().map((profile) => ({ username: profile.username, score: Number(profile.regularBestScore ?? profile.bestScore ?? 0) })).filter((row)=>row.score>0).sort((a,b)=>b.score-a.score).slice(0,3);
+    if (v16GlobalConfigured()) {
+      try { const globalRows = await v164FetchModeLeaderboard("regular", 3); if (globalRows.length) rows = globalRows.map((row)=>({ username:row.username, score:Number(row.score||0) })); } catch { /* local preview remains */ }
+    }
+    host.innerHTML = rows.length ? rows.map((row,index)=>`<div class="v165-home-rank"><span>${["🥇","🥈","🥉"][index]||`#${index+1}`}</span><strong>${esc(row.username)}</strong><b>${row.score.toLocaleString()}</b></div>`).join("") : `<p class="muted">Complete an Arcade run to appear here.</p>`;
+  }
+
+  showHome = function v165Override_showHome() {
+    v164ShowHomeV165();
+    const modeGrid = $(".v164-mode-grid");
+    if (modeGrid && !$("#v165HomeShowcase")) modeGrid.insertAdjacentHTML("beforebegin", `<div class="v165-home-showcase" id="v165HomeShowcase"><section class="v165-fraudster-card"><div class="fraudster-face"><span class="eye"></span><span class="eye-right"></span><span class="mouth"></span></div><div class="v165-pressure-copy"><strong>Fraudster pressure</strong><div class="meter meter-danger"><span style="width:72%"></span></div><small>Build Trust before the pressure wins.</small></div></section><section class="v165-home-leaderboard"><header><div><span class="eyebrow">Leaderboard preview</span><strong>Top Arcade scores</strong></div><button class="btn btn-secondary btn-small" id="v165AllRanksBtn">View All</button></header><div id="v165HomeRanks"><p class="muted">Loading scores…</p></div></section></div>`);
+    on($("#v165AllRanksBtn"), "click", () => showLeaderboard("regular"));
+    v165PopulateHomeLeaderboard();
+  };
+
+  /* ------------------------------------------------------------
+     V16.5L) Username + password cloud sign-in across devices
+     No email is collected. Password recovery is not available.
+     ------------------------------------------------------------ */
+  function v165CloudSession() { return v16ReadJson(V165_CLOUD_SESSION_KEY, null); }
+  function v165SetCloudSession(value) { if (value) v16WriteJson(V165_CLOUD_SESSION_KEY, value); else localStorage.removeItem(V165_CLOUD_SESSION_KEY); }
+
+  function v165ProfileSnapshot(profile) {
+    const allowed = ["username","globalShare","bestScore","regularBestScore","regularWins","regularRuns","endlessBestScore","endlessBestRounds","endlessRuns","totalScore","runs","wins","demoRuns","vsWins","vsLosses","vsTies","lastScore","lastPlayedAt","progress","createdAt"];
+    return Object.fromEntries(allowed.map((key)=>[key, profile?.[key]]).filter(([,value])=>value !== undefined));
+  }
+
+  async function v165CloudSaveNow(silent = false) {
+    const session = v165CloudSession(); const profile = v16GetActiveProfile();
+    if (!session?.token || !profile) return false;
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+    const { error } = await client.rpc(config.cloudSaveRpc, { p_session_token: session.token, p_profile_data: v165ProfileSnapshot(profile) });
+    if (error) { if (!silent) toast(v162FriendlyOnlineError(error)); return false; }
+    v165SetCloudSession({ ...session, username: profile.username, savedAt: v16NowIso() });
+    if (!silent) toast("Profile backup saved.");
+    return true;
+  }
+
+  function v165ScheduleCloudSave() {
+    if (!v165CloudSession()?.token) return;
+    clearTimeout(V16_ONLINE.cloudSaveTimer);
+    V16_ONLINE.cloudSaveTimer = setTimeout(() => v165CloudSaveNow(true), 1800);
+  }
+
+  v16UpdateProfile = function v165Override_v16UpdateProfile(profileId, updates) {
+    const result = v164UpdateProfileV165(profileId, updates);
+    if (result?.id === v16GetActiveProfile()?.id) v165ScheduleCloudSave();
+    return result;
+  };
+
+  async function v165RestoreCloudProfile(data, password) {
+    const snapshot = data?.profile_data || {};
+    const username = v163SanitizeUsername(data?.username || snapshot.username || "Player");
+    const issue = v164UsernameIssue(username); if (issue) throw new Error(issue);
+    const profiles = v16GetProfiles();
+    let index = profiles.findIndex((profile)=>profile.username.toLowerCase() === username.toLowerCase());
+    const passwordRecord = await v16BuildPasswordRecord(password);
+    const restored = { ...(index >= 0 ? profiles[index] : {}), ...snapshot, id: index >= 0 ? profiles[index].id : v16Uuid(), username, password: passwordRecord, security:{ failedAttempts:0, lockedUntil:0, lastUnlockedAt:v16NowIso() }, cloudAccount:true };
+    if (index >= 0) profiles[index] = restored; else { profiles.push(restored); index = profiles.length - 1; }
+    v16SaveProfiles(profiles); localStorage.setItem(V16_STORAGE.activeProfile, restored.id); V16_SECURITY.unlockedProfiles.add(restored.id);
+    return restored;
+  }
+
+  async function v165CloudCreate(username, password) {
+    const report = v16PasswordReport(password, username); if (!report.ok) throw new Error("Use a stronger password that completes every requirement.");
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig(); const profile = v16GetActiveProfile();
+    const { data, error } = await client.rpc(config.cloudCreateRpc, { p_username: username, p_password: password, p_profile_data: v165ProfileSnapshot(profile) });
+    if (error) throw error;
+    v165SetCloudSession({ token:data.session_token, username:data.username, savedAt:v16NowIso() });
+    v16UpdateProfile(profile.id,{ cloudAccount:true });
+    return data;
+  }
+
+  async function v165CloudLogin(username, password) {
+    const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+    const { data, error } = await client.rpc(config.cloudLoginRpc, { p_username: username, p_password: password });
+    if (error) throw error;
+    await v165RestoreCloudProfile(data, password);
+    v165SetCloudSession({ token:data.session_token, username:data.username, savedAt:v16NowIso() });
+    return data;
+  }
+
+  function v165CloudAccountHtml(active) {
+    const session = v165CloudSession();
+    if (session?.token) return `<div class="v165-cloud-signin"><div class="v165-cloud-status"><span>☁️</span><div><strong>Signed in as ${esc(session.username || active.username)}</strong><p>Your scores, settings, and resumable solo progress can be restored on another device.</p></div></div><div class="button-row"><button class="btn btn-good" id="v165CloudSaveBtn">Back Up Now</button><button class="btn btn-secondary" id="v165CloudSignOutBtn">Sign Out of Cloud Backup</button></div><p class="form-error" id="v165CloudError"></p></div>`;
+    return `<div class="v165-cloud-signin"><span class="eyebrow">Cross-device sign-in</span><h3>Use a gamer tag and password—no email.</h3><p>Create a cloud backup or sign in on another computer. Forgotten passwords cannot be recovered because no email is collected.</p><div class="v165-cloud-signin-grid"><label><span>Gamer tag</span><input id="v165CloudUsername" maxlength="18" value="${esc(active.username)}" autocomplete="username"></label><label><span>Password</span><div class="password-input-wrap"><input id="v165CloudPassword" type="password" autocomplete="current-password"><button type="button" data-toggle-password="v165CloudPassword">Show</button></div></label></div>${v16PasswordChecklistHtml(active.username,"v165CloudPassword")}<div class="button-row"><button class="btn btn-good" id="v165CloudCreateBtn">Create Cloud Backup</button><button class="btn btn-primary" id="v165CloudLoginBtn">Sign In & Restore</button></div><p class="form-error" id="v165CloudError"></p></div>`;
+  }
+
+  v16AccountSectionHtml = function v165Override_v16AccountSectionHtml(tab, profiles, active) {
+    const html = v164AccountSectionV165(tab, profiles, active);
+    if (tab !== "cloud") return html;
+    return html.replace(/<\/section>\s*$/, `${v165CloudAccountHtml(active)}</section>`);
+  };
+
+  document.addEventListener("click", async (event) => {
+    const target = event.target.closest("#v165CloudCreateBtn,#v165CloudLoginBtn,#v165CloudSaveBtn,#v165CloudSignOutBtn");
+    if (!target) return;
+    event.preventDefault();
+    const errorNode = $("#v165CloudError");
+    try {
+      if (target.id === "v165CloudSaveBtn") await v165CloudSaveNow();
+      if (target.id === "v165CloudSignOutBtn") {
+        const session = v165CloudSession(); const client = v16SupabaseClient(); const config = v16GetGlobalConfig();
+        if (session?.token) await client.rpc(config.cloudLogoutRpc,{ p_session_token:session.token }).catch?.(()=>{});
+        v165SetCloudSession(null); showProfileManager("backup");
+      }
+      if (target.id === "v165CloudCreateBtn" || target.id === "v165CloudLoginBtn") {
+        const username = $("#v165CloudUsername")?.value || ""; const password = $("#v165CloudPassword")?.value || "";
+        target.disabled = true;
+        if (target.id === "v165CloudCreateBtn") await v165CloudCreate(username,password); else await v165CloudLogin(username,password);
+        showProfileManager("backup");
+      }
+    } catch (error) { if (errorNode) errorNode.textContent = v162FriendlyOnlineError(error); target.disabled = false; }
+  });
+
+  /* ------------------------------------------------------------
+     V16.5M) Defensive minigame layout/input repair
+     ------------------------------------------------------------ */
+  function v165RepairRoundLayout() {
+    const zone = $("#microgame"); if (!zone) return;
+    zone.classList.add("v165-round-safe-area");
+    zone.querySelectorAll("[style*='width']").forEach((node) => { if (node instanceof HTMLElement && node.scrollWidth > zone.clientWidth * 1.08) node.style.maxWidth = "100%"; });
+    zone.querySelectorAll("button").forEach((button) => { button.style.touchAction ||= "manipulation"; });
+  }
+
+  renderRound = function v165Override_renderRound() {
+    v164RenderRoundV165();
+    requestAnimationFrame(v165RepairRoundLayout);
+  };
+
+  /* Install current cloud-password strength helper whenever the account page renders. */
+  const v164ShowProfileManagerV165 = showProfileManager;
+  showProfileManager = function v165Override_showProfileManager(tab = "profiles") {
+    v164ShowProfileManagerV165(tab);
+    requestAnimationFrame(() => {
+      const input = $("#v165CloudPassword"); if (input) v16WirePasswordStrength(input, () => $("#v165CloudUsername")?.value || "");
+      v16WirePasswordReveal();
+    });
+  };
+
+  /* V16.5 starts from the preserved V16.4 home after all overrides install. */
+
+
+
+
+  /* ============================================================
+     18F) V16.6 STABILITY + 60-SECOND SEARCH + TEAM UX
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — every V16.5 system remains above.
+
+     V16.6 fixes:
+     - 2v2/bot recap freezes
+     - unreliable A+ state
+     - reaction cooldown toast spam
+     - search-reset and empty-room races
+     - stable live score rows and combined team totals
+     - separate cloud sign-in Account Settings tab
+     - 60-second matchmaking windows
+     - team highlighting and cleaner layouts
+     - late match-found confirmation
+     - human replacement of waiting computer slots (with V16.6 SQL)
+     ============================================================ */
+
+  const V166_SEARCH_SECONDS = 60;
+  const V166_CHOICE_CLOSE_SECONDS = 30;
+  const V166_LATE_MATCH_SECONDS = 15;
+  const V166_BOT_GRACE_SECONDS = 10;
+  const V166_REACTION_COOLDOWN = 1500;
+
+  /* Display the current additive engine version without editing the preserved level bank. */
+  if (DATA?.site) DATA.site.version = "16.6";
+
+  const v165RenderCoreV166 = render;
+  const v165SfxCoreV166 = sfx;
+  const v165AccountSectionCoreV166 = v16AccountSectionHtml;
+  const v165AccountNavCoreV166 = v16AccountNav;
+  const v165SubscribeRoomCoreV166 = v162SubscribeToRoom;
+  const v165LeaveRoomCoreV166 = v162LeaveRoom;
+  const v165ProfileSnapshotCoreV166 = v165ProfileSnapshot;
+  const v165RestoreCloudProfileCoreV166 = v165RestoreCloudProfile;
+
+  /* ------------------------------------------------------------
+     V16.6A) A+ / Easy View always applies after every render
+     ------------------------------------------------------------ */
+  v164ToggleEasyView = function v166ToggleEasyView() {
+    const settings = v164AccessibilitySettings();
+    settings.easyView = !Boolean(settings.easyView);
+    settings.reducedMotion = Boolean(settings.easyView);
+    v16WriteJson(V164_ACCESS_KEY, settings);
+    v164ApplyAccessibility();
+    sfx(settings.easyView ? "accessOn" : "accessOff");
+    toast(settings.easyView ? "Easy View is on." : "Easy View is off.");
+  };
+
+  render = function v166Override_render(html) {
+    v165RenderCoreV166(html);
+    requestAnimationFrame(() => {
+      v164ApplyAccessibility();
+      document.documentElement.style.setProperty("--v166-vh", `${window.innerHeight * .01}px`);
+    });
+  };
+
+  wireTopbar = function v166Override_wireTopbar() {
+    on($("#homeBtn"), "click", showHome);
+    on($("#soundBtn"), "click", toggleSound);
+    const accessButton = $("#accessibilityBtn");
+    if (accessButton) {
+      accessButton.dataset.v166Wired = "1";
+      on(accessButton, "click", v164ToggleEasyView);
+    }
+    updateSoundButton();
+    v164ApplyAccessibility();
+  };
+
+  if (!window.__ffV166AccessFallback) {
+    window.__ffV166AccessFallback = true;
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("#accessibilityBtn");
+      if (!button || button.dataset.v166Wired === "1") return;
+      event.preventDefault();
+      v164ToggleEasyView();
+    });
+    window.addEventListener("resize", () => v164ApplyAccessibility(), { passive: true });
+  }
+
+  /* ------------------------------------------------------------
+     V16.6B) Additional game and interface sounds
+     ------------------------------------------------------------ */
+  function v166Chord(notes, spacing = 65, duration = .2, type = "sine", volume = .075) {
+    notes.forEach((note, index) => setTimeout(() => v165Tone(note[0], note[1] ?? note[0], duration, type, volume), index * spacing));
+  }
+
+  sfx = function v166Override_sfx(name) {
+    if (name === "accessOn") return v166Chord([[420,620],[620,880]], 70, .2, "triangle", .08);
+    if (name === "accessOff") return v166Chord([[650,480]], 0, .2, "sine", .06);
+    if (name === "countdown") return v165Tone(520, 560, .12, "square", .055);
+    if (name === "countdownFinal") return v165Tone(720, 1080, .22, "triangle", .09);
+    if (name === "searchReset") return v166Chord([[360,520],[520,720]], 75, .2, "sine", .08);
+    if (name === "teamPick") return v166Chord([[430,650],[650,820]], 55, .18, "triangle", .075);
+    if (name === "scoreTick") return v165Tone(760, 850, .10, "sine", .035);
+    if (name === "roomFinish") return v166Chord([[520,760],[660,940],[820,1160]], 75, .24, "triangle", .09);
+    if (name === "recapOpen") return v166Chord([[390,620],[620,880]], 80, .22, "sine", .08);
+    if (name === "modalOpen") return v165Tone(300, 520, .22, "triangle", .065);
+    if (name === "cloudLogin") return v166Chord([[440,660],[660,990]], 80, .24, "sine", .08);
+    if (name === "roomJoin") return v166Chord([[380,570],[570,820]], 65, .2, "triangle", .075);
+    if (name === "roomLeave") return v165Tone(520, 250, .24, "sine", .06);
+    return v165SfxCoreV166(name);
+  };
+
+  /* ------------------------------------------------------------
+     V16.6C) Cloud sign-in gets its own Account Settings option
+     ------------------------------------------------------------ */
+  v16AccountNav = function v166Override_v16AccountNav(activeTab) {
+    const tabs = [
+      ["profiles", "👥", "Profiles"],
+      ["security", "🔐", "Password"],
+      ["cloud", "🌎", "Online Play"],
+      ["backup", "☁️", "Sign In & Backup"],
+      ["danger", "⚙️", "Rename or Delete"]
+    ];
+    return `<nav class="account-nav" aria-label="Account settings">${tabs.map(([key, icon, label]) => `<button class="account-nav-btn ${activeTab === key ? "active" : ""}" data-account-tab="${key}"><span>${icon}</span><strong>${label}</strong></button>`).join("")}</nav>`;
+  };
+
+  v16AccountSectionHtml = function v166Override_v16AccountSectionHtml(tab, profiles, active) {
+    if (tab === "backup") {
+      return `<section class="account-section v166-cloud-account-section"><div class="account-section-head"><div><span class="eyebrow">Sign In & Backup</span><h2>Continue on another device.</h2><p>Use only your gamer tag and password. No email is collected.</p></div><div class="account-security-badge ${v165CloudSession()?.token ? "secure" : "attention"}">${v165CloudSession()?.token ? "☁️ Backed up" : "Optional"}</div></div>${v165CloudAccountHtml(active)}</section>`;
+    }
+    if (tab === "cloud") return v164AccountSectionV165(tab, profiles, active);
+    return v165AccountSectionCoreV166(tab, profiles, active);
+  };
+
+  /* Save accessibility, sound, selected difficulty, and device preferences too. */
+  v165ProfileSnapshot = function v166Override_v165ProfileSnapshot(profile) {
+    return {
+      ...v165ProfileSnapshotCoreV166(profile),
+      _v166Settings: {
+        accessibility: v164AccessibilitySettings(),
+        soundOn: Boolean(state.soundOn),
+        playerMode: state.playerMode,
+        deviceMode: state.deviceMode,
+        difficulty: state.difficulty
+      }
+    };
+  };
+
+  v165RestoreCloudProfile = async function v166Override_v165RestoreCloudProfile(data, password) {
+    const restored = await v165RestoreCloudProfileCoreV166(data, password);
+    const settings = data?.profile_data?._v166Settings;
+    if (settings?.accessibility) v16WriteJson(V164_ACCESS_KEY, settings.accessibility);
+    if (typeof settings?.soundOn === "boolean") {
+      state.soundOn = settings.soundOn;
+      localStorage.ffV10Sound = state.soundOn ? "on" : "off";
+    }
+    if (["family", "senior"].includes(settings?.playerMode)) state.playerMode = settings.playerMode;
+    if (["auto", "touch", "motion", "keyboard"].includes(settings?.deviceMode)) state.deviceMode = settings.deviceMode;
+    if (["easy", "medium", "hard"].includes(settings?.difficulty)) state.difficulty = settings.difficulty;
+    v164ApplyAccessibility();
+    sfx("cloudLogin");
+    return restored;
+  };
+
+  /* ------------------------------------------------------------
+     V16.6D) Reactions: one cooldown message, no toast spam
+     ------------------------------------------------------------ */
+  v164ReactionDock = function v166Override_v164ReactionDock() {
+    return `<div class="v164-reaction-dock" aria-label="Preset reactions"><span>Quick reactions</span>${[...V164_ALLOWED_REACTIONS].map(([key,label]) => `<button type="button" data-v164-reaction="${key}">${label}</button>`).join("")}<small class="v166-reaction-status" id="v166ReactionStatus" aria-live="polite"></small></div>`;
+  };
+
+  function v166SetReactionCooldown(until) {
+    clearInterval(V16_ONLINE.reactionUiTimer);
+    const update = () => {
+      const remaining = Math.max(0, until - Date.now());
+      const docks = $$(".v164-reaction-dock");
+      docks.forEach((dock) => dock.classList.toggle("reaction-cooling", remaining > 0));
+      $$('[data-v164-reaction]').forEach((button) => { button.disabled = remaining > 0; });
+      $$("#v166ReactionStatus").forEach((node) => { node.textContent = remaining > 0 ? `Ready in ${(remaining / 1000).toFixed(1)}s` : "Ready"; });
+      if (remaining <= 0) {
+        clearInterval(V16_ONLINE.reactionUiTimer);
+        V16_ONLINE.reactionUiTimer = null;
+      }
+    };
+    update();
+    V16_ONLINE.reactionUiTimer = setInterval(update, 100);
+  }
+
+  v164SendReaction = async function v166Override_v164SendReaction(key) {
+    if (!V164_ALLOWED_REACTIONS.has(key) || !V16_ONLINE.room?.id) return;
+    const now = Date.now();
+    const nextAllowed = Number(V16_ONLINE.lastReactionAt || 0) + V166_REACTION_COOLDOWN;
+    if (now < nextAllowed) {
+      v166SetReactionCooldown(nextAllowed);
+      return;
+    }
+
+    V16_ONLINE.lastReactionAt = now;
+    const localPayload = {
+      id: `local:${V16_ONLINE.user?.id || "player"}:${now}`,
+      key,
+      username: v16GetActiveProfile().username,
+      userId: V16_ONLINE.user?.id,
+      sentAt: now
+    };
+    v165ShowReaction(localPayload, false);
+    v166SetReactionCooldown(now + V166_REACTION_COOLDOWN);
+
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    let remotePayload = { ...localPayload };
+    try {
+      if (client) {
+        const { data, error } = await client.rpc(config.sendReactionRpc, {
+          p_room_id: V16_ONLINE.room.id,
+          p_reaction_key: key
+        });
+        if (!error && data?.id) {
+          remotePayload.id = String(data.id);
+          (V16_ONLINE.seenReactionIds ||= new Set()).add(String(data.id));
+        }
+      }
+      await V16_ONLINE.roomChannel?.send({
+        type: "broadcast",
+        event: "reaction_v165",
+        payload: remotePayload
+      }).catch?.(() => {});
+    } catch (error) {
+      console.warn("Reaction delivery fallback:", error);
+    }
+  };
+
+  /* ------------------------------------------------------------
+     V16.6E) Stable live standings and combined 2v2 scores
+     ------------------------------------------------------------ */
+  function v166StableOrder(players) {
+    V16_ONLINE.stableParticipantOrder ||= new Map();
+    const order = V16_ONLINE.stableParticipantOrder;
+    players.forEach((player) => {
+      const key = String(player.user_id);
+      if (!order.has(key)) order.set(key, order.size);
+    });
+    return [...players].sort((a, b) => {
+      if (V16_ONLINE.match?.teamMode) {
+        const teamDiff = Number(a.team_no || 1) - Number(b.team_no || 1);
+        if (teamDiff) return teamDiff;
+      }
+      return Number(order.get(String(a.user_id)) || 0) - Number(order.get(String(b.user_id)) || 0);
+    });
+  }
+
+  function v166RankMap(players) {
+    const ranked = [...players].sort((a,b) => Number(b.score || 0) - Number(a.score || 0) || Number(b.current_round || 0) - Number(a.current_round || 0));
+    return new Map(ranked.map((player, index) => [String(player.user_id), index + 1]));
+  }
+
+  function v166TeamSummary(players) {
+    if (!V16_ONLINE.match?.teamMode) return "";
+    const totals = v164TeamTotals(players);
+    return `<div class="v166-team-scoreboard">${totals.map((entry) => `<div class="v166-team-total team-${entry.team === 1 ? "one" : "two"}"><i class="v166-team-dot"></i><strong>Team ${entry.team}</strong><b>${Number(entry.score || 0).toLocaleString()}</b></div>`).join("")}</div>`;
+  }
+
+  v165StandingsRows = function v166Override_v165StandingsRows(players, totalRounds) {
+    const stable = v166StableOrder(players);
+    const ranks = v166RankMap(players);
+    return `${v166TeamSummary(players)}<div class="v165-live-board">${stable.map((player) => {
+      const isMe = player.user_id === V16_ONLINE.user?.id && !player.is_bot;
+      const round = clamp(Number(isMe ? state.idx + 1 : player.current_round || 0), 0, totalRounds);
+      const score = Number(isMe ? state.score : player.score || 0);
+      const teamClass = V16_ONLINE.match?.teamMode ? `team-${Number(player.team_no || 1) === 1 ? "one" : "two"}` : "";
+      return `<div class="v165-live-row ${isMe ? "you" : ""} ${teamClass}" data-v166-player="${esc(String(player.user_id))}"><b class="v166-rank-badge">#${ranks.get(String(player.user_id)) || 1}</b><span class="identity"><strong>${esc(player.username)}${isMe ? " · You" : ""}</strong><small>${player.is_bot ? "Computer" : player.is_host ? "Human · Host" : "Human"}${V16_ONLINE.match?.teamMode ? ` · Team ${Number(player.team_no || 1)}` : ""}</small></span><span class="v165-kind-pill ${player.is_bot ? "computer" : ""}">${player.is_bot ? "CPU" : "Human"}</span><span class="v166-score-cell"><strong>${score.toLocaleString()}</strong><small>R${round}/${totalRounds}</small><div class="v165-progress-mini"><div><i style="width:${totalRounds ? (round / totalRounds) * 100 : 0}%"></i></div></div></span></div>`;
+    }).join("")}</div>`;
+  };
+
+  v16UpdateVersusHud = function v166Override_v16UpdateVersusHud() {
+    const match = V16_ONLINE.match;
+    if (!match?.roomMode) return v164UpdateHudV165();
+    match.players = v165Contestants();
+    const host = $("#roomHudRanks");
+    if (!host) return;
+    const html = v165StandingsRows(match.players, Math.max(1, state.selected.length || match.roundIds.length));
+    if (host.dataset.v166Fingerprint !== html) {
+      host.dataset.v166Fingerprint = html;
+      host.innerHTML = html;
+      v164WireReactionDock($("#versusHud") || document);
+    }
+  };
+
+  /* Slow the database fallback poll slightly; Realtime remains immediate. */
+  v162SubscribeToRoom = async function v166Override_v162SubscribeToRoom() {
+    await v165SubscribeRoomCoreV166();
+    clearInterval(V16_ONLINE.roomLivePoll);
+    V16_ONLINE.roomLivePoll = setInterval(() => v162FetchRoomState().catch(() => {}), 1500);
+  };
+
+  /* ------------------------------------------------------------
+     V16.6F) Team selection highlighting and lobby decoration
+     ------------------------------------------------------------ */
+  const v165SetTeamCoreV166 = v164SetTeam;
+  v164SetTeam = async function v166Override_v164SetTeam(teamNo) {
+    sfx("teamPick");
+    await v165SetTeamCoreV166(teamNo);
+  };
+
+  function v166DecorateRoomLobby() {
+    const contestants = v165Contestants();
+    const cards = $$("#roomLobbyPlayers .room-player-card");
+    cards.forEach((card, index) => {
+      const player = contestants[index];
+      if (!player) return;
+      card.classList.toggle("team-one", Number(player.team_no || 1) === 1);
+      card.classList.toggle("team-two", Number(player.team_no || 1) === 2);
+    });
+    const me = contestants.find((player) => player.user_id === V16_ONLINE.user?.id);
+    $$('[data-v164-team]').forEach((button) => {
+      const selected = Number(button.dataset.v164Team) === Number(me?.team_no || 1);
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+  }
+
+  const v165RenderRoomLobbyCoreV166 = v162RenderRoomLobby;
+  v162RenderRoomLobby = function v166Override_v162RenderRoomLobby() {
+    v165RenderRoomLobbyCoreV166();
+    v166DecorateRoomLobby();
+    v166RenderBotGraceBanner();
+  };
+
+  /* ------------------------------------------------------------
+     V16.6G) 60-second search windows and reliable Search Again
+     ------------------------------------------------------------ */
+  function v166RemoveChoiceOverlay() {
+    clearInterval(V16_ONLINE.choiceCloseTimer);
+    V16_ONLINE.choiceCloseTimer = null;
+    $("#v166ChoiceOverlay")?.remove();
+    $("#v165ChoiceOverlay")?.remove();
+  }
+
+  function v166SetLocalDeadline(seconds = V166_SEARCH_SECONDS) {
+    const deadline = new Date(Date.now() + seconds * 1000).toISOString();
+    if (V16_ONLINE.room?.row) {
+      V16_ONLINE.room.row.settings ||= {};
+      V16_ONLINE.room.row.settings.matchmaking_deadline = deadline;
+    }
+    return deadline;
+  }
+
+  function v166StartChoiceAutoClose() {
+    let left = V166_CHOICE_CLOSE_SECONDS;
+    const tick = async () => {
+      const node = $("#v166ChoiceAutoClose");
+      if (node) node.textContent = String(left);
+      if (left-- > 0) return;
+      clearInterval(V16_ONLINE.choiceCloseTimer);
+      V16_ONLINE.choiceCloseTimer = null;
+      v166RemoveChoiceOverlay();
+      await v162LeaveRoom({ goHome: true });
+      showHome();
+    };
+    tick();
+    V16_ONLINE.choiceCloseTimer = setInterval(tick, 1000);
+  }
+
+  v165ShowSearchChoice = function v166Override_v165ShowSearchChoice() {
+    if ($("#v166ChoiceOverlay") || !V16_ONLINE.room?.id) return;
+    sfx("modalOpen");
+    const mode = V16_ONLINE.room.row?.settings?.mode || "solo";
+    const contestants = v165Contestants();
+    const overlay = document.createElement("div");
+    overlay.id = "v166ChoiceOverlay";
+    overlay.className = "v166-choice-overlay";
+    overlay.innerHTML = `<div class="v166-choice-dialog"><span class="eyebrow">Search complete</span><h2>What would you like to do?</h2><p>${contestants.length > 1 ? `${contestants.length} competitors are currently in this lobby.` : "No suitable opponent joined before the timer ended."}</p><div class="v166-choice-grid"><button class="v166-choice-card" id="v166KeepSearching"><span>🔎</span><strong>Keep Searching</strong><small>Restart a full 60-second search</small></button><button class="v166-choice-card danger" id="v166GoHome"><span>⌂</span><strong>Go Home</strong><small>Close your search and leave safely</small></button><button class="v166-choice-card" id="v166PlayComputers"><span>🤖</span><strong>Play vs Computers</strong><small>Fill missing positions and begin</small></button></div><div class="v166-modal-countdown">This room closes in <span id="v166ChoiceAutoClose">${V166_CHOICE_CLOSE_SECONDS}</span>s if no option is chosen.</div></div>`;
+    document.body.appendChild(overlay);
+
+    on($("#v166KeepSearching"), "click", async () => {
+      const button = $("#v166KeepSearching");
+      if (button) { button.disabled = true; button.querySelector("strong").textContent = "Restarting…"; }
+      const client = v16SupabaseClient();
+      const config = v16GetGlobalConfig();
+      const deadline = v166SetLocalDeadline(V166_SEARCH_SECONDS);
+      const { error } = await client.rpc(config.extendSearchRpc, {
+        p_room_id: V16_ONLINE.room.id,
+        p_seconds: V166_SEARCH_SECONDS
+      }).catch((error) => ({ error }));
+      if (error) {
+        if (button) { button.disabled = false; button.querySelector("strong").textContent = "Keep Searching"; }
+        return toast(v162FriendlyOnlineError(error));
+      }
+      V16_ONLINE.room.row.settings.matchmaking_deadline = deadline;
+      sfx("searchReset");
+      v166RemoveChoiceOverlay();
+      await v162FetchRoomState().catch(() => {});
+      v165StartLobbyDeadlineTimer();
+    });
+
+    on($("#v166GoHome"), "click", async () => {
+      v166RemoveChoiceOverlay();
+      sfx("roomLeave");
+      await v162LeaveRoom({ goHome: true });
+      showHome();
+    });
+
+    on($("#v166PlayComputers"), "click", () => {
+      if (mode === "team_2v2") {
+        v166RemoveChoiceOverlay();
+        return v165FillWithBots("team_2v2");
+      }
+      const dialog = overlay.querySelector(".v166-choice-dialog");
+      dialog.innerHTML = `<span class="eyebrow">Computer match</span><h2>Choose the format.</h2><p>Computer competitors make occasional mistakes and remain challenging.</p><div class="v166-choice-grid"><button class="v166-choice-card" id="v166BotsFfa"><span>⚔️</span><strong>Free-for-All</strong><small>Individual scores decide the winner</small></button><button class="v166-choice-card" id="v166BotsTeams"><span>🤝</span><strong>2 vs 2</strong><small>Each teammate's score adds to the team total</small></button><button class="v166-choice-card" id="v166BotsBack"><span>←</span><strong>Back</strong><small>Return to the previous choices</small></button></div>`;
+      on($("#v166BotsFfa"), "click", () => { v166RemoveChoiceOverlay(); v165FillWithBots("solo"); });
+      on($("#v166BotsTeams"), "click", () => { v166RemoveChoiceOverlay(); v165FillWithBots("team_2v2"); });
+      on($("#v166BotsBack"), "click", () => { v166RemoveChoiceOverlay(); v165ShowSearchChoice(); });
+    });
+
+    v166StartChoiceAutoClose();
+  };
+
+  v165StartLobbyDeadlineTimer = function v166Override_v165StartLobbyDeadlineTimer() {
+    clearInterval(V16_ONLINE.searchDeadlineTimer);
+    const room = V16_ONLINE.room;
+    if (!room?.row || room.row.status !== "waiting") return;
+    const settings = room.row.settings || {};
+    if (!settings.matchmaking && !settings.open_join) return;
+
+    const host = $("#roomHostPanel");
+    if (host && !$("#v166SearchCountdown")) {
+      host.insertAdjacentHTML("afterbegin", `<div class="v166-search-countdown" id="v166SearchCountdown"><span><strong>Open lobby</strong><small>Players may join before the search ends.</small></span><strong id="v166SearchSeconds">60s</strong><div class="meter meter-time"><span id="v166SearchMeter" style="width:100%"></span></div></div>`);
+    }
+
+    let lastSecond = null;
+    const tick = () => {
+      const currentSettings = V16_ONLINE.room?.row?.settings || {};
+      const raw = currentSettings.matchmaking_deadline;
+      const deadline = raw ? new Date(raw).getTime() : Date.now() + V166_SEARCH_SECONDS * 1000;
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      if ($("#v166SearchSeconds")) $("#v166SearchSeconds").textContent = `${left}s`;
+      if ($("#v166SearchMeter")) $("#v166SearchMeter").style.width = `${clamp((left / V166_SEARCH_SECONDS) * 100, 0, 100)}%`;
+      if (left <= 3 && left > 0 && left !== lastSecond) sfx(left === 1 ? "countdownFinal" : "countdown");
+      lastSecond = left;
+      if (left > 0) return;
+
+      clearInterval(V16_ONLINE.searchDeadlineTimer);
+      V16_ONLINE.searchDeadlineTimer = null;
+      const contestants = v165Contestants();
+      const team = currentSettings.mode === "team_2v2";
+      const enough = team ? contestants.length >= 4 : contestants.length >= 2;
+      if (enough && v165IsHost()) v162StartRoomMatch();
+      else v165ShowSearchChoice();
+    };
+    tick();
+    V16_ONLINE.searchDeadlineTimer = setInterval(tick, 250);
+  };
+
+  /* ------------------------------------------------------------
+     V16.6H) Late match-found race: ask before returning to a room
+     ------------------------------------------------------------ */
+  async function v166DeclineLateMatch(data) {
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    if (data?.room_id) await client?.rpc(config.matchmakingCancelV165Rpc, { p_room_id: data.room_id }).catch?.(() => {});
+  }
+
+  function v166ShowLateMatchFound(data) {
+    $("#v166LateMatchOverlay")?.remove();
+    sfx("matchFound");
+    const overlay = document.createElement("div");
+    overlay.id = "v166LateMatchOverlay";
+    overlay.className = "v166-choice-overlay";
+    overlay.innerHTML = `<div class="v166-choice-dialog"><span class="eyebrow">Match found</span><h2>A room became available.</h2><p>You left just as another player joined. Rejoin now or decline safely.</p><div class="v166-choice-grid"><button class="v166-choice-card" id="v166JoinLateMatch"><span>🎮</span><strong>Join Match</strong><small>Return to room ${esc(data.room_code || "")}</small></button><button class="v166-choice-card danger" id="v166DeclineLateMatch"><span>✕</span><strong>Decline</strong><small>Leave this room and stay home</small></button></div><div class="v166-modal-countdown">Auto-declining in <span id="v166LateSeconds">${V166_LATE_MATCH_SECONDS}</span>s.</div></div>`;
+    document.body.appendChild(overlay);
+    let left = V166_LATE_MATCH_SECONDS;
+    clearInterval(V16_ONLINE.lateMatchTimer);
+    const decline = async () => {
+      clearInterval(V16_ONLINE.lateMatchTimer);
+      V16_ONLINE.lateMatchTimer = null;
+      overlay.remove();
+      await v166DeclineLateMatch(data);
+    };
+    on($("#v166JoinLateMatch"), "click", async () => {
+      clearInterval(V16_ONLINE.lateMatchTimer);
+      overlay.remove();
+      V16_ONLINE.matchmakingCancelled = false;
+      await v164EnterMatchedRoomV165(data.room_id, data.room_code);
+    });
+    on($("#v166DeclineLateMatch"), "click", decline);
+    const tick = () => {
+      const node = $("#v166LateSeconds");
+      if (node) node.textContent = String(left);
+      if (left-- <= 0) decline();
+    };
+    tick();
+    V16_ONLINE.lateMatchTimer = setInterval(tick, 1000);
+  }
+
+  v164StartMatchmaking = async function v166Override_v164StartMatchmaking(mode) {
+    try {
+      await v162EnsureAnonymousOnlineSession();
+      V16_ONLINE.matchmakingCancelled = false;
+      V16_ONLINE.matchmakingToken = Number(V16_ONLINE.matchmakingToken || 0) + 1;
+      const token = V16_ONLINE.matchmakingToken;
+      const client = v16SupabaseClient();
+      const config = v16GetGlobalConfig();
+      const { data, error } = await client.rpc(config.matchmakingJoinV165Rpc, {
+        p_username: v16GetActiveProfile().username,
+        p_mode: mode,
+        p_timer_mode: "relaxed"
+      });
+      if (error) throw error;
+      if (!data?.room_id) return;
+      if (V16_ONLINE.matchmakingCancelled || token !== V16_ONLINE.matchmakingToken) {
+        return v166ShowLateMatchFound(data);
+      }
+      sfx("roomJoin");
+      await v164EnterMatchedRoomV165(data.room_id, data.room_code);
+    } catch (error) {
+      toast(v162FriendlyOnlineError(error));
+    }
+  };
+
+  v162LeaveRoom = async function v166Override_v162LeaveRoom(options = {}) {
+    v166RemoveChoiceOverlay();
+    clearInterval(V16_ONLINE.lateMatchTimer);
+    V16_ONLINE.lateMatchTimer = null;
+    $("#v166LateMatchOverlay")?.remove();
+    return v165LeaveRoomCoreV166(options);
+  };
+
+  /* ------------------------------------------------------------
+     V16.6I) Computer fill grace period and smoother bot progress
+     ------------------------------------------------------------ */
+  function v166RenderBotGraceBanner() {
+    const host = $("#roomHostPanel");
+    const deadline = Number(V16_ONLINE.botGraceDeadline || 0);
+    if (!host || deadline <= Date.now() || V16_ONLINE.room?.row?.status !== "waiting") return;
+    let banner = $("#v166BotStartBanner");
+    if (!banner) {
+      host.insertAdjacentHTML("afterbegin", `<div class="v166-bot-start-banner" id="v166BotStartBanner"><div><strong>Computer positions are ready.</strong><p>Humans may still join and replace waiting computer slots.</p></div><b id="v166BotStartSeconds">${V166_BOT_GRACE_SECONDS}s</b></div>`);
+    }
+  }
+
+  function v166StartBotGraceCountdown() {
+    clearInterval(V16_ONLINE.botGraceTimer);
+    V16_ONLINE.botGraceDeadline = Date.now() + V166_BOT_GRACE_SECONDS * 1000;
+    const tick = async () => {
+      const left = Math.max(0, Math.ceil((V16_ONLINE.botGraceDeadline - Date.now()) / 1000));
+      const node = $("#v166BotStartSeconds");
+      if (node) node.textContent = `${left}s`;
+      v166RenderBotGraceBanner();
+      if (left > 0) return;
+      clearInterval(V16_ONLINE.botGraceTimer);
+      V16_ONLINE.botGraceTimer = null;
+      V16_ONLINE.botGraceDeadline = 0;
+      if (v165IsHost() && V16_ONLINE.room?.row?.status === "waiting") await v162StartRoomMatch();
+    };
+    tick();
+    V16_ONLINE.botGraceTimer = setInterval(tick, 250);
+  }
+
+  v165FillWithBots = async function v166Override_v165FillWithBots(format) {
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    const roomId = V16_ONLINE.room?.id;
+    if (!client || !roomId) return;
+    const { error } = await client.rpc(config.fillBotsRpc, { p_room_id: roomId, p_format: format });
+    if (error) return toast(v162FriendlyOnlineError(error));
+    /* Keep the lobby open briefly so a late human can replace a waiting bot. */
+    await client.rpc(config.extendSearchRpc, { p_room_id: roomId, p_seconds: 30 }).catch?.(() => {});
+    if (V16_ONLINE.room?.row) {
+      V16_ONLINE.room.row.settings ||= {};
+      V16_ONLINE.room.row.settings.matchmaking_deadline = new Date(Date.now() + 30000).toISOString();
+    }
+    sfx("botJoin");
+    await v162FetchRoomState();
+    if (v165IsHost()) v166StartBotGraceCountdown();
+  };
+
+  v165StartBotSimulation = function v166Override_v165StartBotSimulation(match) {
+    if (!v165IsHost() || V16_ONLINE.botSimulation || !(V16_ONLINE.room?.bots || []).length) return;
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    const startAt = match.startAt;
+    const timerFactor = match.timerMode === "no_rush" ? 1.38 : match.timerMode === "relaxed" ? 1.18 : match.timerMode === "challenge" ? .86 : 1;
+    const duration = Math.max(20000, match.roundIds.length * 7600 * timerFactor);
+    const interval = setInterval(async () => {
+      if (!V16_ONLINE.match?.roomMode || V16_ONLINE.match.roomId !== match.roomId) {
+        clearInterval(interval);
+        V16_ONLINE.botSimulation = null;
+        return;
+      }
+      const elapsed = Math.max(0, Date.now() - startAt);
+      for (const bot of V16_ONLINE.room?.bots || []) {
+        if (bot.finished) continue;
+        const personality = .82 + ((Number(bot.skill_seed || 1) % 31) / 100);
+        const wave = Math.sin(elapsed / 4200 + Number(bot.skill_seed || 0)) * .018;
+        const progress = clamp((elapsed / duration) * personality + wave, 0, 1);
+        const round = Math.min(match.roundIds.length, Math.floor(progress * (match.roundIds.length + .65)));
+        const mistakeRate = .08 + (1 - personality) * .34;
+        const estimatedMistakes = Math.floor(round * mistakeRate) + ((Number(bot.skill_seed || 0) + round) % 7 === 0 ? 1 : 0);
+        const targetScore = Math.max(0, Math.floor(round * (700 + personality * 230) - estimatedMistakes * 145));
+        const score = Math.max(Number(bot.score || 0), Math.min(targetScore, Number(bot.score || 0) + 1250));
+        const finished = round >= match.roundIds.length;
+        bot.current_round = Math.max(Number(bot.current_round || 0), round);
+        bot.score = score;
+        bot.finished = finished;
+        client.rpc(config.updateBotRpc, {
+          p_room_id: match.roomId,
+          p_bot_id: bot.bot_id,
+          p_score: score,
+          p_current_round: bot.current_round,
+          p_finished: finished
+        }).catch?.(() => {});
+      }
+      v16UpdateVersusHud();
+      v162RenderRoomResults();
+      if (v165EveryoneFinished()) {
+        clearInterval(interval);
+        V16_ONLINE.botSimulation = null;
+      }
+    }, 1800);
+    V16_ONLINE.botSimulation = interval;
+  };
+
+  /* ------------------------------------------------------------
+     V16.6J) Immediate, non-blocking room recap — fixes 2v2 freeze
+     ------------------------------------------------------------ */
+  function v166ResultScreenHtml(match) {
+    return `<section class="screen versus-results-screen">${topbar()}<div class="panel versus-results-panel room-results-panel v164-waiting-results v166-recap-safe"><span class="eyebrow">Room ${esc(match.roomCode)}</span><h1 id="roomResultTitle">Your run is complete.</h1><p id="roomResultStatus" class="v166-results-status waiting">Updating final standings…</p><div class="room-final-self"><span>Your score</span><strong>${Number(match.localScore || 0).toLocaleString()}</strong><b>${esc(v16GetActiveProfile().username)}</b></div><div id="v166ResultsTeamSummary" class="v166-results-team-summary"></div><div class="v164-wait-grid"><section><h2>Live standings</h2><div class="room-final-standings" id="roomFinalStandings"></div></section><section><h2>Follow progress</h2><div id="v164SpectatorPanel"></div><p class="small muted">Only score and round progress are shown.</p></section><section id="v166WaitSection"><h2 id="v166WaitTitle">While you wait</h2><p id="v166WaitCopy">Tap shields and avoid fraudsters.</p><div class="v164-wait-score">Waiting score: <strong id="v164WaitingScore">0</strong></div><div class="v164-waiting-field" id="v164WaitingField"></div></section></div>${v164ReactionDock()}<div class="v165-rematch-panel" id="v165RematchPanel"><div><strong>Play this room again?</strong><p><span id="v165RematchCount">0/0</span> players want a rematch.</p><div class="v165-rematch-meter"><i id="v165RematchMeter" style="width:0%"></i></div></div><button class="btn btn-good" id="v165RematchBtn">Vote for Rematch</button></div><p class="v165-room-close-countdown">Room closes automatically in <span id="v165RoomCloseSeconds">${V165_RESULT_SECONDS}s</span>.</p><div class="button-row"><button class="btn btn-primary" id="returnRoomHubBtn">Leave Room</button><button class="btn" id="roomResultsHomeBtn">Home</button></div></div></section>`;
+  }
+
+  v162ShowRoomResults = async function v166Override_v162ShowRoomResults() {
+    const match = V16_ONLINE.match;
+    if (!match?.roomMode) return showHome();
+    if ($("#roomFinalStandings")) return;
+
+    clearLoops();
+    state.transitioning = false;
+    match.localFinished = true;
+    match.localScore = Number(state.score || match.localScore || 0);
+    V16_ONLINE.resultCloseAt = Date.now() + V165_RESULT_SECONDS * 1000;
+    render(v166ResultScreenHtml(match));
+    wireTopbar();
+    v164WireReactionDock();
+    sfx("recapOpen");
+
+    on($("#v165RematchBtn"), "click", v165VoteRematch);
+    on($("#returnRoomHubBtn"), "click", async () => { await v162LeaveRoom(); showMultiplayerLobby(); });
+    on($("#roomResultsHomeBtn"), "click", async () => { await v162LeaveRoom(); showHome(); });
+
+    v162RenderRoomResults();
+    v164RenderSpectatorPanel();
+    v164StartWaitingGame();
+    v165RefreshRematchStatus();
+    v165StartResultCloseCountdown();
+
+    /* Network synchronization runs after the recap is already visible. */
+    Promise.race([
+      v165PushProgress(true),
+      new Promise((resolve) => setTimeout(resolve, 2500))
+    ]).catch((error) => console.warn("Final score sync continued in background:", error));
+
+    v162FetchRoomState().catch(() => {});
+  };
+
+  v162RenderRoomResults = function v166Override_v162RenderRoomResults() {
+    const host = $("#roomFinalStandings");
+    const match = V16_ONLINE.match;
+    if (!host || !match?.roomMode) return;
+    const players = v165Contestants();
+    const finalOrder = [...players].sort((a,b) => Number(b.score || 0) - Number(a.score || 0) || Number(b.current_round || 0) - Number(a.current_round || 0));
+    const allFinished = v165EveryoneFinished() || V16_ONLINE.room?.row?.status === "finished";
+    const meIndex = finalOrder.findIndex((player) => player.user_id === V16_ONLINE.user?.id);
+
+    host.innerHTML = finalOrder.map((player,index) => {
+      const teamClass = match.teamMode ? `team-${Number(player.team_no || 1) === 1 ? "one" : "two"}` : "";
+      return `<article class="room-final-row ${player.user_id === V16_ONLINE.user?.id ? "you" : ""} ${teamClass}"><span class="room-final-rank">${index === 0 ? "🏆" : `#${index + 1}`}</span><div><strong>${esc(player.username)}${player.is_bot ? " · Computer" : player.user_id === V16_ONLINE.user?.id ? " · You" : " · Human"}${match.teamMode ? ` · Team ${Number(player.team_no || 1)}` : ""}</strong><small>${player.finished ? "Finished" : `Round ${Number(player.current_round || 0)}/${match.roundIds.length}`}</small></div><b>${Number(player.score || 0).toLocaleString()}</b></article>`;
+    }).join("");
+
+    const teamHost = $("#v166ResultsTeamSummary");
+    if (teamHost) teamHost.innerHTML = match.teamMode ? v166TeamSummary(players) : "";
+    const title = $("#roomResultTitle");
+    const status = $("#roomResultStatus");
+
+    if (allFinished) {
+      if (!match.finalSoundPlayed) { match.finalSoundPlayed = true; sfx("roomFinish"); }
+      if (match.teamMode) {
+        const totals = v164TeamTotals(players).sort((a,b) => b.score - a.score);
+        const myTeam = Number(players.find((player) => player.user_id === V16_ONLINE.user?.id)?.team_no || 1);
+        if (title) title.textContent = totals[0]?.score === totals[1]?.score ? "Team match tied!" : totals[0]?.team === myTeam ? `Team ${myTeam} wins!` : `Team ${totals[0]?.team} wins.`;
+      } else if (title) {
+        title.textContent = meIndex === 0 ? "You won the room!" : `You finished #${Math.max(1, meIndex + 1)}.`;
+      }
+      if (status) {
+        status.textContent = "Everyone finished. Final standings are locked.";
+        status.className = "v166-results-status complete";
+      }
+      const waitSection = $("#v166WaitSection");
+      if (waitSection && !waitSection.classList.contains("v166-wait-complete")) {
+        waitSection.className = "v166-wait-complete";
+        waitSection.innerHTML = `<h2>Match complete</h2><p>Review the final scores, send a preset reaction, or vote for a rematch.</p>`;
+      }
+    } else {
+      if (title) title.textContent = "You finished—some competitors are still playing.";
+      if (status) {
+        status.textContent = "Live standings and progress update automatically.";
+        status.className = "v166-results-status waiting";
+      }
+    }
+    v164RenderSpectatorPanel();
+    v165RefreshRematchStatus();
+  };
+
+  /* ------------------------------------------------------------
+     V16.6K) Defensive cleanup for timers and overlays
+     ------------------------------------------------------------ */
+  const v165ClearRoomTimersCoreV166 = v162ClearRoomTimers;
+  v162ClearRoomTimers = function v166Override_v162ClearRoomTimers() {
+    v165ClearRoomTimersCoreV166();
+    ["reactionUiTimer","choiceCloseTimer","lateMatchTimer","botGraceTimer"].forEach((key) => {
+      clearInterval(V16_ONLINE[key]);
+      V16_ONLINE[key] = null;
+    });
+    V16_ONLINE.botGraceDeadline = 0;
+    v166RemoveChoiceOverlay();
+    $("#v166LateMatchOverlay")?.remove();
+  };
+
+  /* ------------------------------------------------------------
+     V16.6L) Final home-showcase spacing repair
+     ------------------------------------------------------------ */
+  const v165ShowHomeCoreV166 = showHome;
+  showHome = function v166Override_showHome() {
+    v165ShowHomeCoreV166();
+    requestAnimationFrame(() => {
+      v164ApplyAccessibility();
+      const face = $("#v165HomeShowcase .fraudster-face");
+      if (face) face.setAttribute("aria-label", "The Fraudster pressure character");
+    });
+  };
+
+
+
+
+  /* ============================================================
+     18G) V16.7 CLOUD + SEARCH + COMPUTER MATCH STABILITY
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — all V16.6 code remains above.
+
+     V16.7 repairs:
+     - Supabase pgcrypto/gen_salt cloud-account failure
+     - cloud password Show button and form layout
+     - Search Again overlay/timer race
+     - stale zero-value live scores
+     - combined team totals that temporarily fall to zero
+     - computer competitors that never advance or finish
+     - single-human computer result/rematch behavior
+     - saved-run scope (Arcade and Endless only)
+     ============================================================ */
+
+  const V167_SEARCH_SECONDS = 60;
+  const V167_SINGLE_HUMAN_HOME_SECONDS = 9;
+
+  /* ------------------------------------------------------------
+     V16.7A) Expanded configuration
+     ------------------------------------------------------------ */
+  const v166GetGlobalConfigCoreV167 = v16GetGlobalConfig;
+  v16GetGlobalConfig = function v167Override_v16GetGlobalConfig() {
+    const base = v166GetGlobalConfigCoreV167();
+    const config = window.FF_ONLINE_CONFIG || window.FF_LEADERBOARD_CONFIG || {};
+    return {
+      ...base,
+      syncBotsV167Rpc: String(config.syncBotsV167Rpc || "ff_sync_room_bots_v167")
+    };
+  };
+
+  function v167PromiseTimeout(promise, milliseconds, message) {
+    let timer;
+    return Promise.race([
+      Promise.resolve(promise).finally(() => clearTimeout(timer)),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message || "The request took too long. Please try again.")), milliseconds);
+      })
+    ]);
+  }
+
+  /* ------------------------------------------------------------
+     V16.7B) Cloud form and reliable Show / Hide button
+     ------------------------------------------------------------ */
+  v165CloudAccountHtml = function v167Override_v165CloudAccountHtml(active) {
+    const session = v165CloudSession();
+    if (session?.token) {
+      return `<div class="v167-cloud-shell"><div class="v167-cloud-heading"><div><span class="eyebrow">Cloud backup connected</span><h3>Signed in as ${esc(session.username || active.username)}</h3><p>Your solo scores, settings, and resumable Arcade or Endless run can be restored on another device.</p></div><span class="account-security-badge secure">Protected</span></div><div class="v167-cloud-actions"><button class="btn btn-good" id="v165CloudSaveBtn">Back Up Now</button><button class="btn btn-secondary" id="v165CloudSignOutBtn">Sign Out</button></div><p class="v167-cloud-error" id="v165CloudError"></p></div>`;
+    }
+
+    return `<div class="v167-cloud-shell"><div class="v167-cloud-heading"><div><span class="eyebrow">Cross-device sign-in</span><h3>Use your gamer tag and password.</h3><p>No email is collected. Create a backup here, then use the same gamer tag and password on another device.</p></div><span class="account-security-badge attention">Optional</span></div><div class="v167-cloud-form"><label><span>Gamer tag</span><input id="v165CloudUsername" maxlength="18" value="${esc(active.username)}" autocomplete="username"></label><label><span>Password</span><div class="password-input-wrap"><input id="v165CloudPassword" type="password" autocomplete="current-password"><button type="button" class="btn btn-secondary" data-v167-password="v165CloudPassword" aria-label="Show password">Show</button></div></label></div>${v16PasswordChecklistHtml(active.username,"v165CloudPassword")}<div class="v167-cloud-actions"><button class="btn btn-good" id="v165CloudCreateBtn">Create Cloud Backup</button><button class="btn btn-primary" id="v165CloudLoginBtn">Sign In & Restore</button></div><div class="v167-cloud-help"><strong>Important:</strong> without email, a forgotten cloud password cannot be reset.</div><p class="v167-cloud-error" id="v165CloudError"></p></div>`;
+  };
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-v167-password]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const input = document.getElementById(button.dataset.v167Password);
+    if (!input) return;
+    const revealing = input.type === "password";
+    input.type = revealing ? "text" : "password";
+    button.textContent = revealing ? "Hide" : "Show";
+    button.setAttribute("aria-label", revealing ? "Hide password" : "Show password");
+    input.focus({ preventScroll: true });
+  }, true);
+
+  /* Friendly message for people who have not run the V16.7 SQL yet. */
+  const v162FriendlyOnlineErrorCoreV167 = v162FriendlyOnlineError;
+  v162FriendlyOnlineError = function v167Override_v162FriendlyOnlineError(error) {
+    const raw = String(error?.message || error || "");
+    if (/gen_salt|crypt\(/i.test(raw)) {
+      return "Cloud password setup needs the V16.7 GLOBAL_SETUP.sql. Run the complete SQL once, then try again.";
+    }
+    return v162FriendlyOnlineErrorCoreV167(error);
+  };
+
+  /* ------------------------------------------------------------
+     V16.7C) Saved runs belong only to Arcade and Endless
+     ------------------------------------------------------------ */
+  function v167ProgressAllowed(progressOrMode) {
+    const mode = typeof progressOrMode === "string" ? progressOrMode : progressOrMode?.runMode;
+    return mode === "full" || mode === "arcade" || mode === "regular" || mode === "endless";
+  }
+
+  const v166SaveProgressCoreV167 = v16SaveProgressSnapshot;
+  v16SaveProgressSnapshot = function v167Override_v16SaveProgressSnapshot() {
+    if (!v167ProgressAllowed(state.runMode || "full")) return;
+    return v166SaveProgressCoreV167();
+  };
+
+  const v166ProfileSnapshotCoreV167 = v165ProfileSnapshot;
+  v165ProfileSnapshot = function v167Override_v165ProfileSnapshot(profile) {
+    const snapshot = v166ProfileSnapshotCoreV167(profile);
+    if (snapshot.progress && !v167ProgressAllowed(snapshot.progress)) delete snapshot.progress;
+    return snapshot;
+  };
+
+  const v166RestoreCloudCoreV167 = v165RestoreCloudProfile;
+  v165RestoreCloudProfile = async function v167Override_v165RestoreCloudProfile(data, password) {
+    const clean = { ...(data || {}), profile_data: { ...(data?.profile_data || {}) } };
+    if (clean.profile_data.progress && !v167ProgressAllowed(clean.profile_data.progress)) {
+      delete clean.profile_data.progress;
+    }
+    return v166RestoreCloudCoreV167(clean, password);
+  };
+
+  function v167RemoveInvalidSavedRun() {
+    const profile = v16GetActiveProfile();
+    if (profile?.progress && !v167ProgressAllowed(profile.progress)) {
+      v16UpdateProfile(profile.id, { progress: null });
+    }
+  }
+
+  /* ------------------------------------------------------------
+     V16.7D) Monotonic score cache — scores/rounds never jump to zero
+     ------------------------------------------------------------ */
+  function v167ScoreCacheKey() {
+    const roomId = V16_ONLINE.room?.id || "none";
+    const generation = Number(V16_ONLINE.room?.row?.settings?.rematch_generation || 0);
+    return `${roomId}:${generation}`;
+  }
+
+  function v167PrepareScoreCache() {
+    const key = v167ScoreCacheKey();
+    if (V16_ONLINE.v167ScoreCacheKey !== key) {
+      V16_ONLINE.v167ScoreCacheKey = key;
+      V16_ONLINE.v167ScoreCache = new Map();
+    }
+    return (V16_ONLINE.v167ScoreCache ||= new Map());
+  }
+
+  function v167ApplyScoreFloor(player) {
+    const cache = v167PrepareScoreCache();
+    const key = String(player.user_id);
+    const previous = cache.get(key) || { score: 0, round: 0, finished: false };
+    const isMe = !player.is_bot && player.user_id === V16_ONLINE.user?.id;
+    const next = {
+      score: Math.max(previous.score, Number(player.score || 0), isMe ? Number(state.score || 0) : 0),
+      round: Math.max(previous.round, Number(player.current_round || 0), isMe && state.runMode === "versus" ? Number(state.idx + 1) : 0),
+      finished: Boolean(previous.finished || player.finished)
+    };
+    cache.set(key, next);
+    return { ...player, score: next.score, current_round: next.round, finished: next.finished };
+  }
+
+  const v166ContestantsCoreV167 = v165Contestants;
+  v165Contestants = function v167Override_v165Contestants() {
+    return v166ContestantsCoreV167().map(v167ApplyScoreFloor);
+  };
+
+  function v167TeamSummary(players) {
+    if (!V16_ONLINE.match?.teamMode) return "";
+    const totals = [1, 2].map((team) => ({
+      team,
+      score: players.filter((player) => Number(player.team_no || 1) === team)
+        .reduce((sum, player) => sum + Number(player.score || 0), 0)
+    }));
+    return `<div class="v167-team-totals">${totals.map((entry) => `<div class="v167-team-total team-${entry.team === 1 ? "one" : "two"}"><i></i><strong>Team ${entry.team}</strong><b>${entry.score.toLocaleString()}</b></div>`).join("")}</div>`;
+  }
+
+  /* Replace the V16.6 team summary helper so every screen uses the
+     same monotonic individual scores and combined totals. */
+  v166TeamSummary = function v167Override_v166TeamSummary(players) {
+    return v167TeamSummary((players || []).map(v167ApplyScoreFloor));
+  };
+
+  const v166StandingsRowsCoreV167 = v165StandingsRows;
+  v165StandingsRows = function v167Override_v165StandingsRows(players, totalRounds) {
+    const stablePlayers = players.map(v167ApplyScoreFloor);
+    const existing = v166StandingsRowsCoreV167(stablePlayers, totalRounds);
+    if (!V16_ONLINE.match?.teamMode) return existing;
+    return existing.replace(/^<div class="v166-team-scoreboard">[\s\S]*?<\/div><div class="v165-live-board">/, `${v167TeamSummary(stablePlayers)}<div class="v165-live-board">`);
+  };
+
+  /* ------------------------------------------------------------
+     V16.7E) Server-authoritative computer progression
+     ------------------------------------------------------------ */
+  async function v167SyncComputers() {
+    const roomId = V16_ONLINE.room?.id;
+    if (!roomId || !(V16_ONLINE.room?.bots || []).length) return null;
+    const client = v16SupabaseClient();
+    if (!client) return null;
+    const config = v16GetGlobalConfig();
+    const { data, error } = await client.rpc(config.syncBotsV167Rpc, { p_room_id: roomId }).catch((error) => ({ data: null, error }));
+    if (error) console.warn("Computer progress sync failed:", error);
+    return data;
+  }
+
+  const v166FetchRoomCoreV167 = v162FetchRoomState;
+  v162FetchRoomState = async function v167Override_v162FetchRoomState() {
+    if (V16_ONLINE.room?.row?.status === "playing" && (V16_ONLINE.room?.bots || []).length) {
+      await v167SyncComputers();
+    }
+    const room = await v166FetchRoomCoreV167();
+    if (room?.players) room.players = room.players.map(v167ApplyScoreFloor);
+    if (room?.bots) room.bots = room.bots.map((bot) => {
+      const normalized = v165BotAsPlayer(bot);
+      const floored = v167ApplyScoreFloor(normalized);
+      return { ...bot, score: floored.score, current_round: floored.current_round, finished: floored.finished };
+    });
+    if (V16_ONLINE.match?.roomMode) V16_ONLINE.match.players = v165Contestants();
+    v16UpdateVersusHud();
+    v162RenderRoomResults();
+    return room;
+  };
+
+  v165StartBotSimulation = function v167Override_v165StartBotSimulation(match) {
+    if (!match?.roomMode || !(V16_ONLINE.room?.bots || []).length) return;
+    clearInterval(V16_ONLINE.botSimulation);
+    const tick = async () => {
+      if (!V16_ONLINE.match?.roomMode || V16_ONLINE.match.roomId !== match.roomId) {
+        clearInterval(V16_ONLINE.botSimulation);
+        V16_ONLINE.botSimulation = null;
+        return;
+      }
+      await v167SyncComputers();
+      await v166FetchRoomCoreV167().catch(() => {});
+      if (V16_ONLINE.room?.row?.status === "finished" || v165EveryoneFinished()) {
+        clearInterval(V16_ONLINE.botSimulation);
+        V16_ONLINE.botSimulation = null;
+      }
+    };
+    tick();
+    V16_ONLINE.botSimulation = setInterval(tick, 1100);
+  };
+
+  const v166BeginRoomCoreV167 = v162BeginRoomMatch;
+  v162BeginRoomMatch = function v167Override_v162BeginRoomMatch(roomRow) {
+    V16_ONLINE.v167ScoreCacheKey = null;
+    V16_ONLINE.v167ScoreCache = new Map();
+    v166BeginRoomCoreV167(roomRow);
+    setTimeout(() => {
+      if (V16_ONLINE.match?.roomMode && (V16_ONLINE.room?.bots || []).length) {
+        v165StartBotSimulation(V16_ONLINE.match);
+      }
+    }, Math.max(0, Number(V16_ONLINE.match?.startAt || Date.now()) - Date.now()) + 300);
+  };
+
+  /* Push the local score periodically as a fallback to per-round writes. */
+  function v167StartLocalProgressHeartbeat() {
+    clearInterval(V16_ONLINE.v167ProgressHeartbeat);
+    V16_ONLINE.v167ProgressHeartbeat = setInterval(() => {
+      if (state.runMode === "versus" && V16_ONLINE.match?.roomMode && !V16_ONLINE.match.localFinished) {
+        v165PushProgress(false).catch(() => {});
+      }
+    }, 1800);
+  }
+
+  const v166ShowCountdownCoreV167 = v162ShowRoomCountdown;
+  v162ShowRoomCountdown = function v167Override_v162ShowRoomCountdown(match) {
+    v166ShowCountdownCoreV167(match);
+    v167StartLocalProgressHeartbeat();
+  };
+
+  /* ------------------------------------------------------------
+     V16.7F) Reliable 60-second Search Again
+     ------------------------------------------------------------ */
+  function v167RemoveSearchOverlay() {
+    clearInterval(V16_ONLINE.choiceCloseTimer);
+    V16_ONLINE.choiceCloseTimer = null;
+    $("#v167SearchOverlay")?.remove();
+    v166RemoveChoiceOverlay();
+  }
+
+  async function v167RestartSearch(button, statusNode) {
+    clearInterval(V16_ONLINE.choiceCloseTimer);
+    V16_ONLINE.choiceCloseTimer = null;
+    if (button) button.disabled = true;
+    if (statusNode) statusNode.textContent = "Restarting the full 60-second search…";
+
+    const roomId = V16_ONLINE.room?.id;
+    if (!roomId) throw new Error("This waiting room is no longer available.");
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    const deadline = v166SetLocalDeadline(V167_SEARCH_SECONDS);
+
+    const request = client.rpc(config.extendSearchRpc, {
+      p_room_id: roomId,
+      p_seconds: V167_SEARCH_SECONDS
+    });
+    const { error } = await v167PromiseTimeout(request, 9000, "Search restart timed out. Please try again.");
+    if (error) throw error;
+
+    if (V16_ONLINE.room?.row) {
+      V16_ONLINE.room.row.status = "waiting";
+      V16_ONLINE.room.row.settings ||= {};
+      V16_ONLINE.room.row.settings.matchmaking = true;
+      V16_ONLINE.room.row.settings.matchmaking_deadline = deadline;
+    }
+
+    sfx("searchReset");
+    v167RemoveSearchOverlay();
+    await v162FetchRoomState().catch(() => {});
+    v162ShowRoomLobby();
+    requestAnimationFrame(() => v165StartLobbyDeadlineTimer());
+  }
+
+  v165ShowSearchChoice = function v167Override_v165ShowSearchChoice() {
+    if ($("#v167SearchOverlay") || !V16_ONLINE.room?.id) return;
+    const mode = V16_ONLINE.room.row?.settings?.mode || "solo";
+    const contestants = v165Contestants();
+    const overlay = document.createElement("div");
+    overlay.id = "v167SearchOverlay";
+    overlay.className = "v167-search-overlay";
+    overlay.innerHTML = `<div class="v167-search-dialog"><span class="eyebrow">Search complete</span><h2>What would you like to do?</h2><p>${contestants.length > 1 ? `${contestants.length} competitors are still in this waiting room.` : "No suitable opponent joined before the timer ended."}</p><div class="v167-search-options"><button class="v167-search-card" id="v167KeepSearching"><span>🔎</span><strong>Keep Searching</strong><small>Restart a complete 60-second search</small></button><button class="v167-search-card danger" id="v167GoHome"><span>⌂</span><strong>Go Home</strong><small>Close this search safely</small></button><button class="v167-search-card" id="v167PlayComputers"><span>🤖</span><strong>Play vs Computers</strong><small>Fill the missing competitor positions</small></button></div><p class="v167-search-status" id="v167SearchStatus"></p><div class="v167-auto-close">Room closes in <span id="v167AutoClose">30</span>s if no option is selected.</div></div>`;
+    document.body.appendChild(overlay);
+
+    on($("#v167KeepSearching"), "click", async () => {
+      try {
+        await v167RestartSearch($("#v167KeepSearching"), $("#v167SearchStatus"));
+      } catch (error) {
+        const button = $("#v167KeepSearching");
+        if (button) button.disabled = false;
+        const node = $("#v167SearchStatus");
+        if (node) node.textContent = v162FriendlyOnlineError(error);
+      }
+    });
+
+    on($("#v167GoHome"), "click", async () => {
+      v167RemoveSearchOverlay();
+      await v162LeaveRoom({ goHome: true });
+      showHome();
+    });
+
+    on($("#v167PlayComputers"), "click", () => {
+      if (mode === "team_2v2") {
+        v167RemoveSearchOverlay();
+        return v165FillWithBots("team_2v2");
+      }
+      const dialog = overlay.querySelector(".v167-search-dialog");
+      dialog.innerHTML = `<span class="eyebrow">Computer match</span><h2>Choose a format.</h2><p>Computer competitors make realistic mistakes and appear in the same live standings.</p><div class="v167-search-options"><button class="v167-search-card" id="v167BotsSolo"><span>⚔️</span><strong>Free-for-All</strong><small>Each competitor has an individual score</small></button><button class="v167-search-card" id="v167BotsTeams"><span>🤝</span><strong>2 vs 2</strong><small>Both teammate scores combine</small></button><button class="v167-search-card danger" id="v167BotsBack"><span>←</span><strong>Back</strong><small>Return to the previous choices</small></button></div>`;
+      on($("#v167BotsSolo"), "click", () => { v167RemoveSearchOverlay(); v165FillWithBots("solo"); });
+      on($("#v167BotsTeams"), "click", () => { v167RemoveSearchOverlay(); v165FillWithBots("team_2v2"); });
+      on($("#v167BotsBack"), "click", () => { v167RemoveSearchOverlay(); v165ShowSearchChoice(); });
+    });
+
+    let left = 30;
+    const tick = async () => {
+      const node = $("#v167AutoClose");
+      if (node) node.textContent = String(left);
+      if (left-- > 0) return;
+      v167RemoveSearchOverlay();
+      await v162LeaveRoom({ goHome: true });
+      showHome();
+    };
+    tick();
+    V16_ONLINE.choiceCloseTimer = setInterval(tick, 1000);
+  };
+
+  /* Replace the narrow countdown with a responsive 60-second card. */
+  const v166LobbyTimerCoreV167 = v165StartLobbyDeadlineTimer;
+  v165StartLobbyDeadlineTimer = function v167Override_v165StartLobbyDeadlineTimer() {
+    v166LobbyTimerCoreV167();
+    requestAnimationFrame(() => {
+      const old = $("#v166SearchCountdown") || $("#v165SearchCountdown");
+      if (!old || old.classList.contains("v167-lobby-countdown")) return;
+      old.className = "v167-lobby-countdown";
+      const seconds = old.querySelector("#v166SearchSeconds,#v165SearchSeconds");
+      if (seconds) seconds.textContent = seconds.textContent || "60s";
+    });
+  };
+
+  /* ------------------------------------------------------------
+     V16.7G) Computer-only result flow and final winner
+     ------------------------------------------------------------ */
+  function v167HumanContestants() {
+    return v165Contestants().filter((player) => !player.is_bot && !player.left_at);
+  }
+
+  function v167SingleHumanRoom() {
+    return v167HumanContestants().length <= 1 && v165Contestants().some((player) => player.is_bot);
+  }
+
+  async function v167FinalizeComputersNow() {
+    if (!v167SingleHumanRoom()) return;
+    await v165PushProgress(true).catch(() => {});
+    await v167SyncComputers();
+    await v162FetchRoomState().catch(() => {});
+  }
+
+  const v166ShowResultsCoreV167 = v162ShowRoomResults;
+  v162ShowRoomResults = async function v167Override_v162ShowRoomResults(lost) {
+    clearInterval(V16_ONLINE.v167ProgressHeartbeat);
+    V16_ONLINE.v167ProgressHeartbeat = null;
+    await v166ShowResultsCoreV167(lost);
+    if (v167SingleHumanRoom()) {
+      await v167FinalizeComputersNow();
+      v162RenderRoomResults();
+    }
+  };
+
+  const v166RenderResultsCoreV167 = v162RenderRoomResults;
+  v162RenderRoomResults = function v167Override_v162RenderRoomResults() {
+    v166RenderResultsCoreV167();
+    if (!$("#roomFinalStandings") || !V16_ONLINE.match?.roomMode) return;
+
+    const players = v165Contestants();
+    const allFinished = players.length > 0 && players.every((player) => player.finished || player.left_at) || V16_ONLINE.room?.row?.status === "finished";
+    const singleHuman = v167SingleHumanRoom();
+
+    const teamHost = $("#v166ResultsTeamSummary");
+    if (teamHost && V16_ONLINE.match.teamMode) teamHost.innerHTML = v167TeamSummary(players);
+
+    if (singleHuman) {
+      $("#v165RematchPanel")?.classList.add("v167-hidden");
+      const closeText = document.querySelector(".v165-room-close-countdown");
+      if (closeText) closeText.innerHTML = allFinished
+        ? `Returning home in <span id="v165RoomCloseSeconds">${V167_SINGLE_HUMAN_HOME_SECONDS}s</span>.`
+        : "Computer results are being finalized…";
+
+      if (allFinished && !V16_ONLINE.v167SoloHomeTimer) {
+        let left = V167_SINGLE_HUMAN_HOME_SECONDS;
+        clearInterval(V16_ONLINE.resultCloseTimer);
+        V16_ONLINE.resultCloseTimer = null;
+        V16_ONLINE.v167SoloHomeTimer = setInterval(async () => {
+          const node = $("#v165RoomCloseSeconds");
+          if (node) node.textContent = `${Math.max(0,left)}s`;
+          if (left-- > 0) return;
+          clearInterval(V16_ONLINE.v167SoloHomeTimer);
+          V16_ONLINE.v167SoloHomeTimer = null;
+          await v162LeaveRoom({ goHome: true });
+          showHome();
+        }, 1000);
+      }
+    }
+  };
+
+  /* ------------------------------------------------------------
+     V16.7H) Lobby decoration and cleanup
+     ------------------------------------------------------------ */
+  const v166RenderLobbyCoreV167 = v162RenderRoomLobby;
+  v162RenderRoomLobby = function v167Override_v162RenderRoomLobby() {
+    v166RenderLobbyCoreV167();
+    const controls = $("#roomHostPanel");
+    if (controls) controls.classList.add("v167-host-stack");
+    if (V16_ONLINE.room?.row?.settings?.matchmaking && V16_ONLINE.room.row.status === "waiting") {
+      v165StartLobbyDeadlineTimer();
+    }
+  };
+
+  const v166ClearRoomTimersCoreV167 = v162ClearRoomTimers;
+  v162ClearRoomTimers = function v167Override_v162ClearRoomTimers() {
+    v166ClearRoomTimersCoreV167();
+    clearInterval(V16_ONLINE.v167ProgressHeartbeat);
+    clearInterval(V16_ONLINE.v167SoloHomeTimer);
+    V16_ONLINE.v167ProgressHeartbeat = null;
+    V16_ONLINE.v167SoloHomeTimer = null;
+    v167RemoveSearchOverlay();
+  };
+
+  /* Keep only valid solo progress before showing the home screen. */
+  const v166ShowHomeCoreV167 = showHome;
+  showHome = function v167Override_showHome() {
+    v167RemoveInvalidSavedRun();
+    v166ShowHomeCoreV167();
+  };
+
+
+
+  /* ============================================================
+     20) V16.8 ONLINE ROOM STATE + RESULT FINALIZATION
+     ------------------------------------------------------------
+     ADDITIVE FIXES:
+     - Search choices can never appear during an active match.
+     - Only the waiting-room host sees the expired-search choices.
+     - Explicit and stale departures update every browser quickly.
+     - One remaining human wins immediately after another human leaves.
+     - Computer results are advanced and returned by one server snapshot.
+     - Old room responses cannot pull a player out of a solo game.
+     - Previous-room recovery is offered instead of forced automatically.
+     ============================================================ */
+
+  const V168_PREVIOUS_ROOM_KEY = "ffV168PreviousRoom";
+  const V168_HEARTBEAT_MS = 8000;
+  const V168_POLL_MS = 1200;
+
+  const v167GetGlobalConfigCoreV168 = v16GetGlobalConfig;
+  v16GetGlobalConfig = function v168Override_v16GetGlobalConfig() {
+    const config = v167GetGlobalConfigCoreV168();
+    return {
+      ...config,
+      roomSnapshotV168Rpc: String(config.roomSnapshotV168Rpc || "ff_room_snapshot_v168"),
+      leaveRoomV168Rpc: String(config.leaveRoomV168Rpc || "ff_leave_room_v168"),
+      recentRoomV168Rpc: String(config.recentRoomV168Rpc || "ff_find_recent_room_v168"),
+      rejoinRoomV168Rpc: String(config.rejoinRoomV168Rpc || "ff_rejoin_room_v168")
+    };
+  };
+
+  function v168OnlineSurfaceVisible() {
+    return Boolean(
+      document.querySelector(
+        ".multiplayer-screen, .versus-results-screen, .room-versus-hud, .room-lobby-panel"
+      ) || state.runMode === "versus"
+    );
+  }
+
+  function v168RoomEpoch() {
+    return Number(V16_ONLINE.v168RoomEpoch || 0);
+  }
+
+  function v168AdvanceRoomEpoch() {
+    V16_ONLINE.v168RoomEpoch = v168RoomEpoch() + 1;
+    return V16_ONLINE.v168RoomEpoch;
+  }
+
+  function v168ClearSearchState() {
+    clearInterval(V16_ONLINE.searchDeadlineTimer);
+    clearInterval(V16_ONLINE.choiceCloseTimer);
+    V16_ONLINE.searchDeadlineTimer = null;
+    V16_ONLINE.choiceCloseTimer = null;
+    $("#v167SearchOverlay")?.remove();
+    $("#v166SearchOverlay")?.remove();
+    $("#v165ChoiceOverlay")?.remove();
+    $("#v165SearchCountdown")?.remove();
+    $("#v166SearchCountdown")?.remove();
+    try { v166RemoveChoiceOverlay(); } catch { /* older overlay may not exist */ }
+  }
+
+  function v168RememberRoom(room = V16_ONLINE.room) {
+    if (!room?.id) return;
+    try {
+      localStorage.setItem(
+        V168_PREVIOUS_ROOM_KEY,
+        JSON.stringify({
+          id: room.id,
+          code: room.code || room.row?.code || "",
+          status: room.row?.status || "waiting",
+          savedAt: Date.now()
+        })
+      );
+    } catch { /* local storage may be unavailable */ }
+  }
+
+  function v168ForgetRoom() {
+    try { localStorage.removeItem(V168_PREVIOUS_ROOM_KEY); } catch { /* ignore */ }
+  }
+
+  function v168NormalizeSnapshot(data) {
+    if (!data || typeof data !== "object") return null;
+    return {
+      room: data.room || null,
+      players: Array.isArray(data.players) ? data.players : [],
+      bots: Array.isArray(data.bots) ? data.bots : [],
+      activeHumans: Number(data.active_humans || 0),
+      totalHumans: Number(data.total_humans || 0)
+    };
+  }
+
+  function v168FriendlyWinner(players, roomRow) {
+    const settings = roomRow?.settings || {};
+    const teamWinner = Number(settings.winner_team || 0);
+    if (teamWinner === 1 || teamWinner === 2) {
+      return {
+        title: `Team ${teamWinner} wins!`,
+        subtitle: settings.ended_reason === "last_human_standing"
+          ? "The other human competitor left the match."
+          : "Final team scores are locked."
+      };
+    }
+
+    const storedName = String(settings.winner_name || "").trim();
+    const storedUserId = String(settings.winner_user_id || "");
+    const meWon = storedUserId && storedUserId === String(V16_ONLINE.user?.id || "");
+    if (storedName) {
+      return {
+        title: meWon ? "You win!" : `${storedName} wins!`,
+        subtitle: settings.ended_reason === "last_human_standing"
+          ? "The other human competitor left, so the remaining player wins."
+          : "Final standings are locked."
+      };
+    }
+
+    const ranked = [...players].sort(
+      (a, b) => Number(b.score || 0) - Number(a.score || 0) ||
+        Number(b.current_round || 0) - Number(a.current_round || 0) ||
+        String(a.username || "").localeCompare(String(b.username || ""))
+    );
+    const winner = ranked[0];
+    if (!winner) return { title: "Match complete.", subtitle: "Final standings are locked." };
+    const isMe = winner.user_id === V16_ONLINE.user?.id;
+    return {
+      title: isMe ? "You win!" : `${winner.username} wins!`,
+      subtitle: "Final standings are locked."
+    };
+  }
+
+  /* ------------------------------------------------------------
+     V16.8A) One server snapshot owns room membership, bots, and finish state
+     ------------------------------------------------------------ */
+  const v167FetchRoomFallbackV168 = v162FetchRoomState;
+  v162FetchRoomState = async function v168Override_v162FetchRoomState() {
+    const client = v16SupabaseClient();
+    const room = V16_ONLINE.room;
+    if (!client || !room?.id) return null;
+
+    const roomId = room.id;
+    const epoch = v168RoomEpoch();
+    const config = v16GetGlobalConfig();
+    const [{ data, error }, reactionsResponse] = await Promise.all([
+      client.rpc(config.roomSnapshotV168Rpc, { p_room_id: roomId }).catch((caught) => ({ data: null, error: caught })),
+      Promise.resolve(
+        client.from("ff_room_reactions")
+          .select("id,room_id,user_id,username,reaction_key,created_at")
+          .eq("room_id", roomId)
+          .order("created_at", { ascending: false })
+          .limit(16)
+      ).catch((caught) => ({ data: null, error: caught }))
+    ]);
+
+    if (error) {
+      const message = String(error?.message || error || "");
+      if (/room_snapshot_v168|does not exist|could not find/i.test(message)) {
+        return v167FetchRoomFallbackV168();
+      }
+      throw error;
+    }
+
+    if (epoch !== v168RoomEpoch() || V16_ONLINE.room?.id !== roomId) return null;
+
+    const snapshot = v168NormalizeSnapshot(data);
+    if (!snapshot?.room) return null;
+
+    room.row = snapshot.room;
+    room.code = snapshot.room.code;
+    room.players = snapshot.players;
+    room.bots = snapshot.bots;
+    room.activeHumans = snapshot.activeHumans;
+    room.totalHumans = snapshot.totalHumans;
+    if (snapshot.rematch) v169ApplyRematchStatus(snapshot.rematch);
+    v168RememberRoom(room);
+
+    if (!reactionsResponse?.error && Array.isArray(reactionsResponse?.data)) {
+      v165ProcessReactionRows(reactionsResponse.data);
+    }
+
+    if (V16_ONLINE.match?.roomMode && V16_ONLINE.match.roomId === roomId) {
+      V16_ONLINE.match.players = v165Contestants();
+    }
+
+    const status = room.row.status;
+    if (status !== "waiting") v168ClearSearchState();
+
+    if (status === "playing" && room.row.round_ids?.length) {
+      const generation = Number(room.row.settings?.rematch_generation || 0);
+      if (!room.matchStarted || V16_ONLINE.match?.roomGeneration !== generation) {
+        room.matchStarted = true;
+        v162BeginRoomMatch(room.row);
+      }
+    }
+
+    if (status === "finished" && state.runMode === "versus" && V16_ONLINE.match?.roomMode) {
+      if (!V16_ONLINE.match.localFinished && !V16_ONLINE.v168OpeningResults) {
+        V16_ONLINE.v168OpeningResults = true;
+        V16_ONLINE.match.localFinished = true;
+        V16_ONLINE.match.localScore = Number(state.score || V16_ONLINE.match.localScore || 0);
+        clearLoops();
+        setTimeout(async () => {
+          try { await v162ShowRoomResults(false); }
+          finally { V16_ONLINE.v168OpeningResults = false; }
+        }, 0);
+      }
+    }
+
+    if (status === "cancelled") {
+      v168ClearSearchState();
+      const shouldNavigate = v168OnlineSurfaceVisible();
+      v162ResetRoomLocalState();
+      v168ForgetRoom();
+      if (shouldNavigate) showMultiplayerLobby();
+      return null;
+    }
+
+    if (!v168OnlineSurfaceVisible()) return room;
+
+    v162RenderRoomLobby();
+    v16UpdateVersusHud();
+    v162RenderRoomResults();
+    v164RenderSpectatorPanel();
+    return room;
+  };
+
+  /* ------------------------------------------------------------
+     V16.8B) Faster presence and stale-player updates
+     ------------------------------------------------------------ */
+  const v167SubscribeCoreV168 = v162SubscribeToRoom;
+  v162SubscribeToRoom = async function v168Override_v162SubscribeToRoom() {
+    await v167SubscribeCoreV168();
+    const roomId = V16_ONLINE.room?.id;
+    const client = v16SupabaseClient();
+    if (!roomId || !client) return;
+
+    clearInterval(V16_ONLINE.roomHeartbeatTimer);
+    clearInterval(V16_ONLINE.roomLivePoll);
+
+    const heartbeat = () => {
+      if (V16_ONLINE.room?.id !== roomId) return;
+      client.rpc(v16GetGlobalConfig().heartbeatRoomRpc, { p_room_id: roomId }).catch?.(() => {});
+    };
+
+    heartbeat();
+    V16_ONLINE.roomHeartbeatTimer = setInterval(heartbeat, V168_HEARTBEAT_MS);
+    V16_ONLINE.roomLivePoll = setInterval(() => {
+      if (V16_ONLINE.room?.id === roomId) v162FetchRoomState().catch(() => {});
+    }, V168_POLL_MS);
+  };
+
+  /* ------------------------------------------------------------
+     V16.8C) Search popups belong only to a waiting-room host
+     ------------------------------------------------------------ */
+  const v167SearchChoiceCoreV168 = v165ShowSearchChoice;
+  v165ShowSearchChoice = function v168Override_v165ShowSearchChoice() {
+    const room = V16_ONLINE.room;
+    const actualLobby = Boolean($("#roomHostPanel") && $("#roomLobbyPlayers"));
+    if (
+      !room?.id ||
+      room.row?.status !== "waiting" ||
+      room.matchStarted ||
+      state.runMode === "versus" ||
+      V16_ONLINE.match?.roomMode ||
+      !actualLobby
+    ) {
+      v168ClearSearchState();
+      return;
+    }
+
+    if (!v162RoomIsHost()) {
+      const status = $("#roomRealtimeStatus");
+      if (status) status.textContent = "Waiting for the host to continue the search.";
+      return;
+    }
+
+    return v167SearchChoiceCoreV168();
+  };
+
+  const v167LobbyDeadlineCoreV168 = v165StartLobbyDeadlineTimer;
+  v165StartLobbyDeadlineTimer = function v168Override_v165StartLobbyDeadlineTimer() {
+    const room = V16_ONLINE.room;
+    if (
+      !room?.row ||
+      room.row.status !== "waiting" ||
+      room.matchStarted ||
+      state.runMode === "versus" ||
+      !$("#roomHostPanel")
+    ) {
+      clearInterval(V16_ONLINE.searchDeadlineTimer);
+      V16_ONLINE.searchDeadlineTimer = null;
+      return;
+    }
+    return v167LobbyDeadlineCoreV168();
+  };
+
+  const v167BeginRoomMatchCoreV168 = v162BeginRoomMatch;
+  v162BeginRoomMatch = function v168Override_v162BeginRoomMatch(roomRow) {
+    v168ClearSearchState();
+    return v167BeginRoomMatchCoreV168(roomRow);
+  };
+
+  /* ------------------------------------------------------------
+     V16.8D) Explicit leave and stale response protection
+     ------------------------------------------------------------ */
+  const v167ResetRoomCoreV168 = v162ResetRoomLocalState;
+  v162ResetRoomLocalState = function v168Override_v162ResetRoomLocalState() {
+    v168AdvanceRoomEpoch();
+    return v167ResetRoomCoreV168();
+  };
+
+  v162LeaveRoom = async function v168Override_v162LeaveRoom(options = {}) {
+    const roomId = V16_ONLINE.room?.id;
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+
+    v168ClearSearchState();
+    V16_ONLINE.matchmakingCancelled = true;
+    V16_ONLINE.matchmakingToken = Number(V16_ONLINE.matchmakingToken || 0) + 1;
+    v168AdvanceRoomEpoch();
+
+    if (roomId && client && options.callServer !== false) {
+      await client.rpc(config.leaveRoomV168Rpc, { p_room_id: roomId }).catch(() => null);
+    }
+
+    v168ForgetRoom();
+    v167ResetRoomCoreV168();
+    if (options.goHome) showHome();
+  };
+
+  /* ------------------------------------------------------------
+     V16.8E) Previous room is offered, never forced
+     ------------------------------------------------------------ */
+  function v168RemovePreviousRoomPrompt() {
+    $("#v168PreviousRoomOverlay")?.remove();
+  }
+
+  async function v168OfferPreviousRoom() {
+    if ($("#v168PreviousRoomOverlay") || V16_ONLINE.room?.id || !v16GetGlobalConfig().enabled) return;
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    if (!client || !V16_ONLINE.user) return;
+
+    const { data, error } = await client
+      .rpc(config.recentRoomV168Rpc)
+      .catch((caught) => ({ data: null, error: caught }));
+    if (error || !data?.room_id || !["waiting", "playing"].includes(data.status)) return;
+
+    const overlay = document.createElement("div");
+    overlay.id = "v168PreviousRoomOverlay";
+    overlay.className = "v168-room-recovery-overlay";
+    overlay.innerHTML = `<div class="v168-room-recovery-card"><span class="eyebrow">Previous online room</span><h2>Would you like to return?</h2><div class="v168-room-recovery-stats"><div><span>Room</span><strong>${esc(data.room_code || "------")}</strong></div><div><span>Status</span><strong>${esc(data.status)}</strong></div><div><span>Humans</span><strong>${Number(data.active_humans || 0)}</strong></div><div><span>Computers</span><strong>${Number(data.active_bots || 0)}</strong></div></div><p>Your previous room is still available. You will never be pulled back automatically.</p><div class="v168-room-recovery-actions"><button class="btn btn-good" id="v168RejoinPrevious">Rejoin Previous Room</button><button class="btn btn-primary" id="v168FindNewRoom">Find a New Solo Match</button><button class="btn btn-secondary" id="v168DismissPrevious">Not Now</button></div><p class="form-error" id="v168RecoveryError"></p></div>`;
+    document.body.appendChild(overlay);
+
+    on($("#v168DismissPrevious"), "click", v168RemovePreviousRoomPrompt);
+    on($("#v168RejoinPrevious"), "click", async () => {
+      const button = $("#v168RejoinPrevious");
+      const errorNode = $("#v168RecoveryError");
+      button.disabled = true;
+      try {
+        const profile = v16GetActiveProfile();
+        const response = await client.rpc(config.rejoinRoomV168Rpc, {
+          p_room_id: data.room_id,
+          p_username: profile.username
+        });
+        if (response.error) throw response.error;
+        v168RemovePreviousRoomPrompt();
+        V16_ONLINE.room = {
+          id: response.data.room_id,
+          code: response.data.room_code,
+          row: null,
+          players: [],
+          bots: [],
+          matchStarted: false
+        };
+        v168AdvanceRoomEpoch();
+        await v162SubscribeToRoom();
+        await v162FetchRoomState();
+        if (V16_ONLINE.room?.row?.status === "waiting") v162ShowRoomLobby();
+      } catch (error) {
+        button.disabled = false;
+        errorNode.textContent = v162FriendlyOnlineError(error);
+      }
+    });
+
+    on($("#v168FindNewRoom"), "click", async () => {
+      const button = $("#v168FindNewRoom");
+      button.disabled = true;
+      await client.rpc(config.leaveRoomV168Rpc, { p_room_id: data.room_id }).catch(() => null);
+      v168RemovePreviousRoomPrompt();
+      v168ForgetRoom();
+      v164StartMatchmaking("solo");
+    });
+  }
+
+  const v167ShowMultiplayerCoreV168 = showMultiplayerLobby;
+  showMultiplayerLobby = function v168Override_showMultiplayerLobby() {
+    /* Never let an old in-memory room skip the choice prompt. */
+    if (V16_ONLINE.room?.id && state.runMode !== "versus") {
+      v168RememberRoom();
+      v168AdvanceRoomEpoch();
+      v167ResetRoomCoreV168();
+    }
+    v167ShowMultiplayerCoreV168();
+    setTimeout(() => v168OfferPreviousRoom().catch(() => {}), 80);
+  };
+
+  /* ------------------------------------------------------------
+     V16.8F) Final winner/place always replaces the waiting message
+     ------------------------------------------------------------ */
+  const v167RenderRoomResultsCoreV168 = v162RenderRoomResults;
+  v162RenderRoomResults = function v168Override_v162RenderRoomResults() {
+    v167RenderRoomResultsCoreV168();
+    if (!$("#roomFinalStandings") || !V16_ONLINE.match?.roomMode) return;
+
+    const roomRow = V16_ONLINE.room?.row;
+    const players = v165Contestants();
+    if (roomRow?.status !== "finished") return;
+
+    const result = v168FriendlyWinner(players, roomRow);
+    const title = $("#roomResultTitle");
+    const status = $("#roomResultStatus");
+    if (title) title.textContent = result.title;
+    if (status) {
+      status.textContent = result.subtitle;
+      status.classList.remove("waiting");
+      status.classList.add("complete");
+    }
+
+    const ranked = [...players].sort(
+      (a, b) => Number(b.score || 0) - Number(a.score || 0) ||
+        Number(b.current_round || 0) - Number(a.current_round || 0)
+    );
+    const myPlace = ranked.findIndex((player) => player.user_id === V16_ONLINE.user?.id) + 1;
+    if (myPlace > 0 && status) status.textContent += ` You placed #${myPlace} of ${ranked.length}.`;
+
+    const follow = $("#v164SpectatorPanel");
+    if (follow) follow.innerHTML = `<strong>Match complete.</strong><p>Every active competitor has a final result.</p>`;
+    const waitSection = $("#v166WaitSection");
+    if (waitSection) waitSection.classList.add("v168-finished-hidden");
+    document.querySelectorAll(".v167-solo-bot-note").forEach((node) => node.remove());
+  };
+
+  /* ------------------------------------------------------------
+     V16.8G) Home/solo navigation cannot be hijacked by old room requests
+     ------------------------------------------------------------ */
+  const v167ShowHomeCoreV168 = showHome;
+  showHome = function v168Override_showHome() {
+    v168ClearSearchState();
+    v168AdvanceRoomEpoch();
+    v168RemovePreviousRoomPrompt();
+    v167ShowHomeCoreV168();
+  };
+
+
+
+
+  /* ============================================================
+     21) V16.9 NATIVE RPC PROMISES + LIVE SCORE/REMATCH CONSISTENCY
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — all V16.8 code remains above.
+
+     Fixes:
+     - Supabase PostgREST builders are PromiseLike but do not always expose
+       `.catch()`. Every RPC is normalized to a real native Promise.
+     - Quick Solo Match and 2v2 no longer fail with
+       "client.rpc(...).catch is not a function".
+     - Score writes return and apply one canonical server snapshot.
+     - Stale score/round broadcasts cannot replace newer values with zero.
+     - Rematch voting is atomic and server-started after every active human
+       votes; every results screen receives the same votes/needed values.
+     - Romance/marketplace cards receive a dedicated one-column layout in CSS.
+     ============================================================ */
+
+  /* ------------------------------------------------------------
+     V16.9A) Normalize Supabase RPC results into native Promises
+     ------------------------------------------------------------ */
+  const v168SupabaseClientCoreV169 = v16SupabaseClient;
+
+  function v169NativePromise(value) {
+    return Promise.resolve(value);
+  }
+
+  function v169NormalizeSupabaseClient(client) {
+    if (!client || client.__ffV169NativeRpc) return client;
+    const originalRpc = client.rpc.bind(client);
+    client.rpc = (...args) => v169NativePromise(originalRpc(...args));
+    Object.defineProperty(client, "__ffV169NativeRpc", {
+      value: true,
+      configurable: false,
+      enumerable: false,
+      writable: false
+    });
+    return client;
+  }
+
+  v16SupabaseClient = function v169Override_v16SupabaseClient() {
+    return v169NormalizeSupabaseClient(v168SupabaseClientCoreV169());
+  };
+
+  /* ------------------------------------------------------------
+     V16.9B) New canonical snapshot/progress/rematch RPC names
+     ------------------------------------------------------------ */
+  const v168GetGlobalConfigCoreV169 = v16GetGlobalConfig;
+  v16GetGlobalConfig = function v169Override_v16GetGlobalConfig() {
+    const base = v168GetGlobalConfigCoreV169();
+    const config = window.FF_ONLINE_CONFIG || window.FF_LEADERBOARD_CONFIG || {};
+    return {
+      ...base,
+      /* Existing V16.8 fetch code reads roomSnapshotV168Rpc, so point that
+         key at the compatible V16.9 superset response. */
+      roomSnapshotV168Rpc: String(config.roomSnapshotV169Rpc || "ff_room_snapshot_v169"),
+      roomSnapshotV169Rpc: String(config.roomSnapshotV169Rpc || "ff_room_snapshot_v169"),
+      updateRoomV169Rpc: String(config.updateRoomV169Rpc || "ff_update_room_progress_v169"),
+      rematchVoteV169Rpc: String(config.rematchVoteV169Rpc || "ff_vote_room_rematch_v169")
+    };
+  };
+
+  /* ------------------------------------------------------------
+     V16.9C) Canonical snapshot application shared by writes/polls
+     ------------------------------------------------------------ */
+  function v169ApplyRematchStatus(data) {
+    if (!data || typeof data !== "object") return;
+    V16_ONLINE.rematchStatus = data;
+
+    const votes = Math.max(0, Number(data.votes || 0));
+    const needed = Math.max(0, Number(data.needed || 0));
+    const percent = needed > 0 ? clamp((votes / needed) * 100, 0, 100) : 0;
+    const count = $("#v165RematchCount");
+    const meter = $("#v165RematchMeter");
+    const button = $("#v165RematchBtn");
+    const panel = $("#v165RematchPanel");
+
+    if (count) count.textContent = `${votes}/${needed}`;
+    if (meter) meter.style.width = `${percent}%`;
+    if (button) {
+      button.disabled = Boolean(data.you_voted || data.started || needed < 2);
+      button.textContent = data.started
+        ? "Rematch Starting…"
+        : data.you_voted
+          ? "Rematch Vote Sent"
+          : needed < 2
+            ? "Another Human Is Needed"
+            : "Vote for Rematch";
+    }
+    if (panel) panel.classList.toggle("v169-rematch-starting", Boolean(data.started));
+  }
+
+  function v169ApplySnapshotData(data) {
+    const snapshot = v168NormalizeSnapshot(data);
+    const room = V16_ONLINE.room;
+    if (!snapshot?.room || !room?.id || snapshot.room.id !== room.id) return null;
+
+    room.row = snapshot.room;
+    room.code = snapshot.room.code;
+    room.players = snapshot.players;
+    room.bots = snapshot.bots;
+    room.activeHumans = snapshot.activeHumans;
+    room.totalHumans = snapshot.totalHumans;
+
+    if (data.rematch) v169ApplyRematchStatus(data.rematch);
+    if (V16_ONLINE.match?.roomMode && V16_ONLINE.match.roomId === room.id) {
+      V16_ONLINE.match.players = v165Contestants();
+    }
+
+    v16UpdateVersusHud();
+    v162RenderRoomResults();
+    v164RenderSpectatorPanel();
+    return room;
+  }
+
+  /* Preserve the V16.8 normalizer and carry the V16.9 rematch block. */
+  const v168NormalizeSnapshotCoreV169 = v168NormalizeSnapshot;
+  v168NormalizeSnapshot = function v169Override_v168NormalizeSnapshot(data) {
+    const snapshot = v168NormalizeSnapshotCoreV169(data);
+    if (snapshot) snapshot.rematch = data?.rematch || null;
+    return snapshot;
+  };
+
+  /* Apply the cached rematch state after every results redraw. */
+  const v168RenderRoomResultsCoreV169 = v162RenderRoomResults;
+  v162RenderRoomResults = function v169Override_v162RenderRoomResults() {
+    v168RenderRoomResultsCoreV169();
+    if (V16_ONLINE.rematchStatus) v169ApplyRematchStatus(V16_ONLINE.rematchStatus);
+  };
+
+  /* ------------------------------------------------------------
+     V16.9D) Score writes execute, remain monotonic, and return snapshot
+     ------------------------------------------------------------ */
+  v165PushProgress = async function v169Override_v165PushProgress(finished = false) {
+    const match = V16_ONLINE.match;
+    if (!match?.roomMode || !match.roomId) return null;
+
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    if (!client) return null;
+
+    match.localScore = Math.max(Number(match.localScore || 0), Number(state.score || 0));
+    const round = finished
+      ? match.roundIds.length
+      : Math.min(Math.max(0, Number(state.idx + 1)), match.roundIds.length);
+
+    const me = (V16_ONLINE.room?.players || []).find(
+      (player) => player.user_id === V16_ONLINE.user?.id
+    );
+    if (me) {
+      me.score = Math.max(Number(me.score || 0), match.localScore);
+      me.current_round = Math.max(Number(me.current_round || 0), round);
+      me.finished = Boolean(me.finished || finished);
+    }
+
+    v16UpdateVersusHud();
+
+    const { data, error } = await client.rpc(config.updateRoomV169Rpc, {
+      p_room_id: match.roomId,
+      p_score: match.localScore,
+      p_current_round: round,
+      p_finished: Boolean(finished)
+    });
+
+    if (error) {
+      console.warn("V16.9 live room progress update failed:", error);
+      return null;
+    }
+
+    if (data) v169ApplySnapshotData(data);
+
+    await Promise.resolve(
+      V16_ONLINE.roomChannel?.send({
+        type: "broadcast",
+        event: "progress",
+        payload: {
+          userId: V16_ONLINE.user?.id,
+          score: match.localScore,
+          round,
+          finished: Boolean(finished)
+        }
+      })
+    ).catch(() => {});
+
+    return data;
+  };
+
+  /* ------------------------------------------------------------
+     V16.9E) Atomic rematch vote + shared _/_ status on every screen
+     ------------------------------------------------------------ */
+  v165RefreshRematchStatus = async function v169Override_v165RefreshRematchStatus() {
+    const roomId = V16_ONLINE.room?.id;
+    if (!roomId || !$("#v165RematchPanel")) return;
+
+    try {
+      const client = v16SupabaseClient();
+      const config = v16GetGlobalConfig();
+      const { data, error } = await client.rpc(config.roomSnapshotV169Rpc, {
+        p_room_id: roomId
+      });
+      if (error) throw error;
+      if (data) {
+        v169ApplySnapshotData(data);
+        if (data.rematch) v169ApplyRematchStatus(data.rematch);
+      }
+    } catch (error) {
+      console.warn("V16.9 rematch status refresh failed:", error);
+    }
+  };
+
+  v165VoteRematch = async function v169Override_v165VoteRematch() {
+    const roomId = V16_ONLINE.room?.id;
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    const button = $("#v165RematchBtn");
+    if (!roomId || !client || button?.disabled) return;
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Sending Vote…";
+    }
+
+    try {
+      const roundCount = Number(V16_ONLINE.room?.row?.round_count || 5);
+      const roundIds = v162SelectRoomRounds(roundCount);
+      const { data, error } = await client.rpc(config.rematchVoteV169Rpc, {
+        p_room_id: roomId,
+        p_round_ids: roundIds
+      });
+      if (error) throw error;
+
+      sfx("rematch");
+      if (data) v169ApplyRematchStatus(data);
+
+      if (data?.started) {
+        V16_ONLINE.room.matchStarted = false;
+        V16_ONLINE.resultCloseAt = null;
+        clearInterval(V16_ONLINE.resultCloseTimer);
+        V16_ONLINE.resultCloseTimer = null;
+        await v162FetchRoomState();
+      }
+    } catch (error) {
+      if (button) button.disabled = false;
+      toast(v162FriendlyOnlineError(error));
+      await v165RefreshRematchStatus();
+    }
+  };
+
+  /* ------------------------------------------------------------
+     V16.9F) User-facing online errors never expose builder internals
+     ------------------------------------------------------------ */
+  const v168FriendlyOnlineErrorCoreV169 = v162FriendlyOnlineError;
+  v162FriendlyOnlineError = function v169Override_v162FriendlyOnlineError(error) {
+    const raw = String(error?.message || error || "");
+    if (/\.catch is not a function|client\.rpc/i.test(raw)) {
+      return "Online Play could not start because an older cached game script is still loaded. Refresh the page and try again.";
+    }
+    return v168FriendlyOnlineErrorCoreV169(error);
+  };
+
+
+
+
+  /* ============================================================
+     22) V16.10 FAIR COMPUTERS + REMATCH/PRESENCE/COUNTDOWN RELIABILITY
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — every V16.9 system remains above.
+
+     Fixes:
+     - Computer scores use the fair V16.10 server model instead of the
+       earlier overpowered scoring curve.
+     - Rematch votes count only active human browsers and refresh on every
+       results screen even when Realtime briefly misses an event.
+     - Room membership is refreshed when the tab becomes visible/focused.
+     - Result-room countdowns use one stable deadline and always return home.
+     ============================================================ */
+
+  const V170_RESULT_SECONDS = 90;
+  const V170_SINGLE_HUMAN_SECONDS = 12;
+  const V170_REMATCH_POLL_MS = 1200;
+
+  /* ------------------------------------------------------------
+     V16.10A) Point every existing caller at the V16.10 server RPCs
+     ------------------------------------------------------------ */
+  const v169GetGlobalConfigCoreV170 = v16GetGlobalConfig;
+  v16GetGlobalConfig = function v170Override_v16GetGlobalConfig() {
+    const base = v169GetGlobalConfigCoreV170();
+    const config = window.FF_ONLINE_CONFIG || window.FF_LEADERBOARD_CONFIG || {};
+    const snapshotRpc = String(config.roomSnapshotV170Rpc || "ff_room_snapshot_v170");
+    const progressRpc = String(config.updateRoomV170Rpc || "ff_update_room_progress_v170");
+    const rematchRpc = String(config.rematchVoteV170Rpc || "ff_vote_room_rematch_v170");
+    const botRpc = String(config.syncBotsV170Rpc || "ff_sync_room_bots_v170");
+    return {
+      ...base,
+      roomSnapshotV168Rpc: snapshotRpc,
+      roomSnapshotV169Rpc: snapshotRpc,
+      roomSnapshotV170Rpc: snapshotRpc,
+      updateRoomV169Rpc: progressRpc,
+      updateRoomV170Rpc: progressRpc,
+      rematchVoteV169Rpc: rematchRpc,
+      rematchVoteV170Rpc: rematchRpc,
+      syncBotsV167Rpc: botRpc,
+      syncBotsV170Rpc: botRpc
+    };
+  };
+
+  /* ------------------------------------------------------------
+     V16.10B) Rematch status never remains stuck on one browser
+     ------------------------------------------------------------ */
+  const v169ApplyRematchStatusCoreV170 = v169ApplyRematchStatus;
+  v169ApplyRematchStatus = function v170Override_v169ApplyRematchStatus(data) {
+    v169ApplyRematchStatusCoreV170(data);
+    if (!data || typeof data !== "object") return;
+
+    const votes = Math.max(0, Number(data.votes || 0));
+    const needed = Math.max(0, Number(data.needed || 0));
+    const panel = $("#v165RematchPanel");
+    const copy = panel?.querySelector("p");
+    if (copy) {
+      copy.innerHTML = needed < 2
+        ? `<span id="v165RematchCount">${votes}/${needed}</span> active human players. Another human is needed for a rematch.`
+        : `<span id="v165RematchCount">${votes}/${needed}</span> active human players voted for a rematch.`;
+    }
+
+    if (data.started) {
+      v170StopResultCountdown();
+      v170StopRematchPoll();
+    } else if (data.all_voted) {
+      setTimeout(() => v170AttemptAutomaticRematchStart(data), 80 + Math.floor(Math.random() * 160));
+    }
+  };
+
+  async function v170AttemptAutomaticRematchStart(data) {
+    if (!data?.all_voted || data?.started || Number(data.needed || 0) < 2) return;
+    if (V16_ONLINE.v170AutoStartingRematch || V16_ONLINE.room?.row?.status !== "finished") return;
+    V16_ONLINE.v170AutoStartingRematch = true;
+    try {
+      const client = v16SupabaseClient();
+      const config = v16GetGlobalConfig();
+      const roundCount = Number(V16_ONLINE.room?.row?.round_count || 5);
+      const roundIds = v162SelectRoomRounds(roundCount);
+      const { data: result, error } = await client.rpc(config.rematchVoteV170Rpc, {
+        p_room_id: V16_ONLINE.room.id,
+        p_round_ids: roundIds
+      });
+      if (!error && result) v169ApplyRematchStatus(result);
+      await v162FetchRoomState().catch(() => {});
+    } catch { /* another browser may have started it first */ }
+    finally { V16_ONLINE.v170AutoStartingRematch = false; }
+  }
+
+  function v170StopRematchPoll() {
+    clearInterval(V16_ONLINE.v170RematchPoll);
+    V16_ONLINE.v170RematchPoll = null;
+  }
+
+  function v170StartRematchPoll() {
+    v170StopRematchPoll();
+    if (!V16_ONLINE.room?.id || !$("#v165RematchPanel")) return;
+    const tick = async () => {
+      if (!V16_ONLINE.room?.id || !$("#v165RematchPanel")) {
+        v170StopRematchPoll();
+        return;
+      }
+      if (V16_ONLINE.room?.row?.status === "playing") {
+        v170StopRematchPoll();
+        return;
+      }
+      await v165RefreshRematchStatus().catch(() => {});
+    };
+    tick();
+    V16_ONLINE.v170RematchPoll = setInterval(tick, V170_REMATCH_POLL_MS);
+  }
+
+  const v169VoteRematchCoreV170 = v165VoteRematch;
+  v165VoteRematch = async function v170Override_v165VoteRematch() {
+    const button = $("#v165RematchBtn");
+    const before = V16_ONLINE.rematchStatus || {};
+    if (before.you_voted || before.started) return;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Sending Vote…";
+    }
+    await v169VoteRematchCoreV170();
+    await v165RefreshRematchStatus().catch(() => {});
+    v170StartRematchPoll();
+  };
+
+  /* ------------------------------------------------------------
+     V16.10C) One durable result deadline that survives redraws
+     ------------------------------------------------------------ */
+  function v170StopResultCountdown() {
+    clearInterval(V16_ONLINE.resultCloseTimer);
+    clearTimeout(V16_ONLINE.v170ResultCloseTimeout);
+    V16_ONLINE.resultCloseTimer = null;
+    V16_ONLINE.v170ResultCloseTimeout = null;
+    V16_ONLINE.v170ClosingResults = false;
+  }
+
+  function v170ResultDeadline() {
+    const serverValue = V16_ONLINE.room?.row?.settings?.result_close_at;
+    const serverTime = serverValue ? Date.parse(serverValue) : NaN;
+    const singleHuman = typeof v167SingleHumanRoom === "function" && v167SingleHumanRoom();
+    const existing = Number(V16_ONLINE.resultCloseAt || 0);
+    if (existing > Date.now()) {
+      if (singleHuman) return Number.isFinite(serverTime) ? Math.min(existing, serverTime) : existing;
+      return Number.isFinite(serverTime) ? serverTime : existing;
+    }
+    const localDuration = (singleHuman ? V170_SINGLE_HUMAN_SECONDS : V170_RESULT_SECONDS) * 1000;
+    const localTime = Date.now() + localDuration;
+    return Number.isFinite(serverTime)
+      ? (singleHuman ? Math.min(serverTime, localTime) : serverTime)
+      : localTime;
+  }
+
+  async function v170CloseResultsAndGoHome() {
+    if (V16_ONLINE.v170ClosingResults) return;
+    V16_ONLINE.v170ClosingResults = true;
+    v170StopRematchPoll();
+    clearInterval(V16_ONLINE.resultCloseTimer);
+    V16_ONLINE.resultCloseTimer = null;
+
+    try {
+      await Promise.race([
+        Promise.resolve(v162LeaveRoom({ goHome: true })),
+        new Promise((resolve) => setTimeout(resolve, 2500))
+      ]);
+    } catch { /* local navigation still completes */ }
+
+    if (V16_ONLINE.room?.id) v162ResetRoomLocalState();
+    showHome();
+  }
+
+  v165StartResultCloseCountdown = function v170Override_v165StartResultCloseCountdown() {
+    const room = V16_ONLINE.room;
+    if (!room?.id || room.row?.status === "playing") {
+      v170StopResultCountdown();
+      return;
+    }
+
+    clearInterval(V16_ONLINE.v167SoloHomeTimer);
+    V16_ONLINE.v167SoloHomeTimer = null;
+    clearInterval(V16_ONLINE.resultCloseTimer);
+    clearTimeout(V16_ONLINE.v170ResultCloseTimeout);
+
+    V16_ONLINE.resultCloseAt = v170ResultDeadline();
+
+    const tick = () => {
+      if (V16_ONLINE.room?.row?.status === "playing") {
+        v170StopResultCountdown();
+        return;
+      }
+      const milliseconds = Math.max(0, V16_ONLINE.resultCloseAt - Date.now());
+      const left = Math.ceil(milliseconds / 1000);
+      document.querySelectorAll("#v165RoomCloseSeconds").forEach((node) => {
+        node.textContent = `${left}`;
+      });
+      if (milliseconds <= 0) v170CloseResultsAndGoHome();
+    };
+
+    tick();
+    V16_ONLINE.resultCloseTimer = setInterval(tick, 250);
+    V16_ONLINE.v170ResultCloseTimeout = setTimeout(
+      () => v170CloseResultsAndGoHome(),
+      Math.max(0, V16_ONLINE.resultCloseAt - Date.now()) + 350
+    );
+  };
+
+  /* Results redraws and room snapshots cannot accidentally stop the timers. */
+  const v169RenderRoomResultsCoreV170 = v162RenderRoomResults;
+  v162RenderRoomResults = function v170Override_v162RenderRoomResults() {
+    v169RenderRoomResultsCoreV170();
+    const isResults = Boolean($("#roomFinalStandings"));
+    if (!isResults) return;
+    if (V16_ONLINE.room?.row?.status === "playing") {
+      v170StopResultCountdown();
+      v170StopRematchPoll();
+      return;
+    }
+    v165StartResultCloseCountdown();
+    v170StartRematchPoll();
+  };
+
+  const v169ShowRoomResultsCoreV170 = v162ShowRoomResults;
+  v162ShowRoomResults = async function v170Override_v162ShowRoomResults(lost) {
+    await v169ShowRoomResultsCoreV170(lost);
+    v165StartResultCloseCountdown();
+    v170StartRematchPoll();
+  };
+
+  const v168BeginRoomMatchCoreV170 = v162BeginRoomMatch;
+  v162BeginRoomMatch = function v170Override_v162BeginRoomMatch(roomRow) {
+    v170StopResultCountdown();
+    v170StopRematchPoll();
+    V16_ONLINE.resultCloseAt = null;
+    return v168BeginRoomMatchCoreV170(roomRow);
+  };
+
+  /* ------------------------------------------------------------
+     V16.10D) Presence refreshes immediately when a player returns
+     ------------------------------------------------------------ */
+  function v170RefreshPresenceNow() {
+    if (!V16_ONLINE.room?.id || document.hidden) return;
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    if (!client) return;
+    client.rpc(config.heartbeatRoomRpc, { p_room_id: V16_ONLINE.room.id }).catch(() => {});
+    v162FetchRoomState().catch(() => {});
+  }
+
+  if (!V16_ONLINE.v170PresenceEventsInstalled) {
+    V16_ONLINE.v170PresenceEventsInstalled = true;
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) v170RefreshPresenceNow();
+    });
+    window.addEventListener("focus", v170RefreshPresenceNow);
+    window.addEventListener("online", v170RefreshPresenceNow);
+  }
+
+  const v168ClearRoomTimersCoreV170 = v162ClearRoomTimers;
+  v162ClearRoomTimers = function v170Override_v162ClearRoomTimers() {
+    v170StopResultCountdown();
+    v170StopRematchPoll();
+    return v168ClearRoomTimersCoreV170();
+  };
+
+  const v168ShowHomeCoreV170 = showHome;
+  showHome = function v170Override_showHome() {
+    v170StopResultCountdown();
+    v170StopRematchPoll();
+    return v168ShowHomeCoreV170();
+  };
+
+
+  /* ============================================================
+     23) V16.11 SERVER-AUTHORITATIVE REMATCH + FINAL WINNER
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — every V16.10 feature remains above.
+
+     Fixes:
+     - The rematch button, Leave Room button, and Home button use one
+       capture-phase action router so a redraw cannot detach them.
+     - Rematch votes are idempotent and synchronized as votes/active humans.
+     - The last required vote starts one atomic rematch in the same room.
+     - Every result screen polls the same server snapshot and automatically
+       enters the rematch countdown when the room restarts.
+     - Solo results always name the winning username.
+     - 2v2 results always name the Green Team or Red Team from canonical
+       server totals.
+     ============================================================ */
+
+  const V171_REMATCH_POLL_MS = 750;
+  const V171_ACTION_TIMEOUT_MS = 1800;
+
+  /* ------------------------------------------------------------
+     V16.11A) Point every room caller at the V16.11 canonical RPCs
+     ------------------------------------------------------------ */
+  const v170GetGlobalConfigCoreV171 = v16GetGlobalConfig;
+  v16GetGlobalConfig = function v171Override_v16GetGlobalConfig() {
+    const base = v170GetGlobalConfigCoreV171();
+    const config = window.FF_ONLINE_CONFIG || window.FF_LEADERBOARD_CONFIG || {};
+    const snapshotRpc = String(config.roomSnapshotV171Rpc || "ff_room_snapshot_v171");
+    const progressRpc = String(config.updateRoomV171Rpc || "ff_update_room_progress_v171");
+    const rematchRpc = String(config.rematchVoteV171Rpc || "ff_vote_room_rematch_v171");
+    return {
+      ...base,
+      roomSnapshotV168Rpc: snapshotRpc,
+      roomSnapshotV169Rpc: snapshotRpc,
+      roomSnapshotV170Rpc: snapshotRpc,
+      roomSnapshotV171Rpc: snapshotRpc,
+      updateRoomV169Rpc: progressRpc,
+      updateRoomV170Rpc: progressRpc,
+      updateRoomV171Rpc: progressRpc,
+      rematchVoteV169Rpc: rematchRpc,
+      rematchVoteV170Rpc: rematchRpc,
+      rematchVoteV171Rpc: rematchRpc
+    };
+  };
+
+  /* ------------------------------------------------------------
+     V16.11B) Final winner copy uses canonical server winner data
+     ------------------------------------------------------------ */
+  const v168FriendlyWinnerCoreV171 = v168FriendlyWinner;
+  v168FriendlyWinner = function v171Override_v168FriendlyWinner(players, roomRow) {
+    const settings = roomRow?.settings || {};
+    const teamMode = String(settings.mode || "") === "team_2v2";
+    const tied = Boolean(settings.winner_tie);
+
+    if (teamMode) {
+      if (tied) {
+        return {
+          title: "Green Team and Red Team tied!",
+          subtitle: "Both teams finished with the same combined score.",
+          winnerClass: "winner-tie"
+        };
+      }
+      const team = Number(settings.winner_team || 0);
+      if (team === 1 || team === 2) {
+        const colorName = team === 1 ? "Green Team" : "Red Team";
+        return {
+          title: `${colorName} wins!`,
+          subtitle: `The ${colorName} earned the highest combined real-time score.`,
+          winnerClass: team === 1 ? "winner-green" : "winner-red"
+        };
+      }
+    }
+
+    if (tied) {
+      return {
+        title: "The match ended in a tie!",
+        subtitle: "The top players finished with the same score.",
+        winnerClass: "winner-tie"
+      };
+    }
+
+    const storedName = String(settings.winner_name || "").trim();
+    if (storedName) {
+      const isMe = String(settings.winner_user_id || "") === String(V16_ONLINE.user?.id || "");
+      return {
+        title: `${storedName} wins!`,
+        subtitle: isMe
+          ? `${storedName} is your gamer tag—you won this room.`
+          : "The winner is based on the final synchronized room score.",
+        winnerClass: "winner-solo"
+      };
+    }
+
+    const fallback = v168FriendlyWinnerCoreV171(players, roomRow);
+    if (fallback?.title === "You win!") {
+      const me = players.find((player) => player.user_id === V16_ONLINE.user?.id);
+      return {
+        ...fallback,
+        title: `${me?.username || v16GetActiveProfile()?.username || "Player"} wins!`,
+        winnerClass: "winner-solo"
+      };
+    }
+    return { ...fallback, winnerClass: "winner-solo" };
+  };
+
+  function v171RenderCanonicalWinner() {
+    if (!$("#roomFinalStandings") || V16_ONLINE.room?.row?.status !== "finished") return;
+    const result = v168FriendlyWinner(v165Contestants(), V16_ONLINE.room.row);
+    const title = $("#roomResultTitle");
+    const status = $("#roomResultStatus");
+    const panel = $(".room-results-panel");
+
+    if (title) title.textContent = result.title;
+    if (status) {
+      status.textContent = result.subtitle;
+      status.classList.remove("waiting");
+      status.classList.add("complete");
+    }
+    if (panel) {
+      panel.classList.remove("winner-green", "winner-red", "winner-solo", "winner-tie");
+      if (result.winnerClass) panel.classList.add(result.winnerClass);
+    }
+  }
+
+  /* ------------------------------------------------------------
+     V16.11C) One reliable rematch status refresh for every screen
+     ------------------------------------------------------------ */
+  function v171StopRematchPoll() {
+    clearInterval(V16_ONLINE.v171RematchPoll);
+    V16_ONLINE.v171RematchPoll = null;
+  }
+
+  async function v171ApplySnapshotAndMaybeRestart(data) {
+    if (!data || !V16_ONLINE.room?.id) return null;
+    const room = v169ApplySnapshotData(data);
+    if (!room) return null;
+
+    const generation = Number(room.row?.settings?.rematch_generation || 0);
+    const currentGeneration = Number(V16_ONLINE.match?.roomGeneration || 0);
+    if (room.row?.status === "playing" && generation > currentGeneration) {
+      v171StopRematchPoll();
+      v170StopResultCountdown();
+      V16_ONLINE.resultCloseAt = null;
+      V16_ONLINE.room.matchStarted = false;
+      if (V16_ONLINE.match) {
+        V16_ONLINE.match.localFinished = false;
+        V16_ONLINE.match.localScore = 0;
+      }
+      await v162FetchRoomState();
+    } else {
+      v171RenderCanonicalWinner();
+    }
+    return room;
+  }
+
+  async function v171RefreshRematchStatus() {
+    const roomId = V16_ONLINE.room?.id;
+    if (!roomId || !$("#v165RematchPanel")) return null;
+    if (V16_ONLINE.v171RematchRefreshPromise) return V16_ONLINE.v171RematchRefreshPromise;
+
+    V16_ONLINE.v171RematchRefreshPromise = (async () => {
+      const client = v16SupabaseClient();
+      const config = v16GetGlobalConfig();
+      if (!client) return null;
+      const { data, error } = await client.rpc(config.roomSnapshotV171Rpc, {
+        p_room_id: roomId
+      });
+      if (error) throw error;
+      if (data) await v171ApplySnapshotAndMaybeRestart(data);
+      return data;
+    })();
+
+    try {
+      return await V16_ONLINE.v171RematchRefreshPromise;
+    } catch (error) {
+      console.warn("V16.11 rematch refresh failed:", error);
+      return null;
+    } finally {
+      V16_ONLINE.v171RematchRefreshPromise = null;
+    }
+  }
+
+  function v171StartRematchPoll() {
+    if (V16_ONLINE.v171RematchPoll) return;
+    if (!V16_ONLINE.room?.id || !$("#v165RematchPanel")) return;
+
+    const tick = async () => {
+      if (!V16_ONLINE.room?.id || !$("#v165RematchPanel")) {
+        v171StopRematchPoll();
+        return;
+      }
+      await v171RefreshRematchStatus();
+    };
+
+    tick();
+    V16_ONLINE.v171RematchPoll = setInterval(tick, V171_REMATCH_POLL_MS);
+  }
+
+  /* Replace every earlier rematch refresh entry point. */
+  v165RefreshRematchStatus = v171RefreshRematchStatus;
+  v170StartRematchPoll = v171StartRematchPoll;
+  v170StopRematchPoll = v171StopRematchPoll;
+
+  /* ------------------------------------------------------------
+     V16.11D) Idempotent vote that starts the same-room rematch
+     ------------------------------------------------------------ */
+  async function v171VoteRematchReliable() {
+    const room = V16_ONLINE.room;
+    const button = $("#v165RematchBtn");
+    if (!room?.id || V16_ONLINE.v171VotePending) return;
+
+    V16_ONLINE.v171VotePending = true;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Sending Rematch Vote…";
+    }
+
+    try {
+      const client = v16SupabaseClient();
+      const config = v16GetGlobalConfig();
+      if (!client) throw new Error("Online Play is not connected.");
+
+      const roundCount = Number(room.row?.round_count || V16_ONLINE.match?.roundIds?.length || 5);
+      const roundIds = v162SelectRoomRounds(roundCount);
+      const { data, error } = await client.rpc(config.rematchVoteV171Rpc, {
+        p_room_id: room.id,
+        p_round_ids: roundIds
+      });
+      if (error) throw error;
+
+      sfx("rematch");
+      if (data) await v171ApplySnapshotAndMaybeRestart(data);
+      v171StartRematchPoll();
+    } catch (error) {
+      toast(v162FriendlyOnlineError(error));
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Vote for Rematch";
+      }
+      await v171RefreshRematchStatus();
+    } finally {
+      V16_ONLINE.v171VotePending = false;
+    }
+  }
+
+  v165VoteRematch = v171VoteRematchReliable;
+
+  /* ------------------------------------------------------------
+     V16.11E) Result buttons survive redraws and always navigate
+     ------------------------------------------------------------ */
+  async function v171LeaveResults(destination) {
+    if (V16_ONLINE.v171LeavingResults) return;
+    V16_ONLINE.v171LeavingResults = true;
+
+    const roomId = V16_ONLINE.room?.id;
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    v171StopRematchPoll();
+    v170StopResultCountdown();
+
+    try {
+      if (roomId && client) {
+        await Promise.race([
+          client.rpc(config.leaveRoomV168Rpc, { p_room_id: roomId }),
+          new Promise((resolve) => setTimeout(resolve, V171_ACTION_TIMEOUT_MS))
+        ]);
+      }
+    } catch {
+      /* Local navigation must still succeed if the network is slow. */
+    }
+
+    try { v168ForgetRoom(); } catch { /* optional helper */ }
+    v162ResetRoomLocalState();
+    V16_ONLINE.v171LeavingResults = false;
+
+    if (destination === "hub") showMultiplayerLobby();
+    else showHome();
+  }
+
+  if (!V16_ONLINE.v171ResultActionRouterInstalled) {
+    V16_ONLINE.v171ResultActionRouterInstalled = true;
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest?.("#v165RematchBtn,#returnRoomHubBtn,#roomResultsHomeBtn");
+      if (!button || !$("#roomFinalStandings")) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      if (button.id === "v165RematchBtn") {
+        v171VoteRematchReliable();
+      } else if (button.id === "returnRoomHubBtn") {
+        v171LeaveResults("hub");
+      } else {
+        v171LeaveResults("home");
+      }
+    }, true);
+  }
+
+  /* ------------------------------------------------------------
+     V16.11F) Reapply winner/rematch behavior after every redraw
+     ------------------------------------------------------------ */
+  const v170RenderRoomResultsCoreV171 = v162RenderRoomResults;
+  v162RenderRoomResults = function v171Override_v162RenderRoomResults() {
+    v170RenderRoomResultsCoreV171();
+    if (!$("#roomFinalStandings")) return;
+    v171RenderCanonicalWinner();
+    if (V16_ONLINE.rematchStatus) v169ApplyRematchStatus(V16_ONLINE.rematchStatus);
+    v171StartRematchPoll();
+  };
+
+  const v170ShowRoomResultsCoreV171 = v162ShowRoomResults;
+  v162ShowRoomResults = async function v171Override_v162ShowRoomResults(lost) {
+    await v170ShowRoomResultsCoreV171(lost);
+    v171RenderCanonicalWinner();
+    v171StartRematchPoll();
+  };
+
+  const v170ClearRoomTimersCoreV171 = v162ClearRoomTimers;
+  v162ClearRoomTimers = function v171Override_v162ClearRoomTimers() {
+    v171StopRematchPoll();
+    return v170ClearRoomTimersCoreV171();
+  };
 
   /* ============================================================
      19) Start the App
