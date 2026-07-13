@@ -11621,6 +11621,139 @@
     return v170ClearRoomTimersCoreV171();
   };
 
+
+  /* ============================================================
+     24) V16.12 SAME CLOUD GAMER TAG + BACKUP HASHING REPAIR
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — every V16.11 feature remains above.
+
+     Fixes only:
+     1) A verified Sign In & Backup owner may use the same gamer tag
+        on another browser's hidden Supabase identity.
+     2) Cloud save/logout use the V16.12 SQL functions whose pgcrypto
+        digest calls are explicitly schema-qualified.
+     ============================================================ */
+
+  if (DATA?.site) DATA.site.version = "16.12";
+
+  /* ------------------------------------------------------------
+     V16.12A) Add the verified cloud-alias claim RPC
+     ------------------------------------------------------------ */
+  const v171GetGlobalConfigCoreV172 = v16GetGlobalConfig;
+
+  v16GetGlobalConfig = function v172Override_v16GetGlobalConfig() {
+    const base = v171GetGlobalConfigCoreV172();
+    const config = window.FF_ONLINE_CONFIG || window.FF_LEADERBOARD_CONFIG || {};
+
+    return {
+      ...base,
+      cloudClaimRpc: String(
+        config.cloudClaimRpc || "ff_claim_cloud_online_identity_v172"
+      )
+    };
+  };
+
+  async function v172ClaimCloudOnlineIdentity(username) {
+    const cloudSession = v165CloudSession();
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+    const clean = v16SanitizeUsername(username);
+
+    if (!cloudSession?.token) {
+      throw new Error(
+        "Sign in through Account Settings → Sign In & Backup before using this gamer tag on another browser."
+      );
+    }
+
+    if (!client || !V16_ONLINE.user) {
+      throw new Error("Connect this browser to Online Play first.");
+    }
+
+    const { data, error } = await client.rpc(config.cloudClaimRpc, {
+      p_session_token: cloudSession.token,
+      p_username: clean
+    });
+
+    if (error) throw error;
+
+    const profile = v16GetActiveProfile();
+    if (profile) {
+      v16UpdateProfile(profile.id, {
+        cloudUserId: V16_ONLINE.user.id,
+        cloudAccount: true
+      });
+    }
+
+    return data;
+  }
+
+  /* ------------------------------------------------------------
+     V16.12B) Cloud-backed aliases can move to the current browser
+     ------------------------------------------------------------ */
+  const v171CloudUpsertAliasCoreV172 = v16CloudUpsertAlias;
+
+  v16CloudUpsertAlias = async function v172Override_v16CloudUpsertAlias(username) {
+    const cloudSession = v165CloudSession();
+
+    if (cloudSession?.token && V16_ONLINE.user) {
+      return v172ClaimCloudOnlineIdentity(username);
+    }
+
+    return v171CloudUpsertAliasCoreV172(username);
+  };
+
+  /* If cloud sign-in happens while an Online Play Auth session already
+     exists, claim the alias immediately. Otherwise the normal Online Play
+     connection will claim it when the player opens the online screen. */
+  const v171CloudCreateCoreV172 = v165CloudCreate;
+  v165CloudCreate = async function v172Override_v165CloudCreate(username, password) {
+    const data = await v171CloudCreateCoreV172(username, password);
+
+    if (V16_ONLINE.user && v165CloudSession()?.token) {
+      await v172ClaimCloudOnlineIdentity(data?.username || username);
+    }
+
+    return data;
+  };
+
+  const v171CloudLoginCoreV172 = v165CloudLogin;
+  v165CloudLogin = async function v172Override_v165CloudLogin(username, password) {
+    const data = await v171CloudLoginCoreV172(username, password);
+
+    if (V16_ONLINE.user && v165CloudSession()?.token) {
+      await v172ClaimCloudOnlineIdentity(data?.username || username);
+    }
+
+    return data;
+  };
+
+  /* ------------------------------------------------------------
+     V16.12C) Clear, actionable messages for the two repaired cases
+     ------------------------------------------------------------ */
+  const v171FriendlyOnlineErrorCoreV172 = v162FriendlyOnlineError;
+
+  v162FriendlyOnlineError = function v172Override_v162FriendlyOnlineError(error) {
+    const raw = String(error?.message || error || "");
+
+    if (/digest\(text,\s*unknown\)|function\s+digest|gen_salt|function\s+crypt/i.test(raw)) {
+      return "Cloud backup needs the V16.12 GLOBAL_SETUP.sql. Run the complete SQL once, refresh the game, and press Back Up Now again.";
+    }
+
+    if (/duplicate key|unique.*username|already connected to another online identity|already exists/i.test(raw)) {
+      return "This gamer tag already belongs to a cloud-backed profile. Open Account Settings → Sign In & Backup, sign in with that gamer tag and password, then reconnect to Online Play.";
+    }
+
+    if (/cloud session expired/i.test(raw)) {
+      return "Your cloud-backup session expired. Open Sign In & Backup and sign in again.";
+    }
+
+    if (/does not own that public gamer tag/i.test(raw)) {
+      return "The signed-in cloud backup belongs to a different gamer tag. Sign out of Backup, then sign in with the matching gamer tag and password.";
+    }
+
+    return v171FriendlyOnlineErrorCoreV172(error);
+  };
+
   /* ============================================================
      19) Start the App
      ============================================================ */
