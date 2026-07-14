@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- Scam Sprint V16.12: FraudFront Ultimate Arcade by Suyash Dash -->
+  <!-- Scam Sprint V16.13: FraudFront Ultimate Arcade by Suyash Dash -->
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#070913" />
@@ -25,7 +25,7 @@
   </main>
 
   <!-- ============================================================
-       V16.12 Cross-Device Gamer Tag + Cloud Backup Repair
+       V16.13 Verified Cross-Browser Gamer Tag Reconnection
        V16.6 ADDITIONS:
        - Existing profile name and password remain the only player-facing account details.
        - Private six-character rooms support individual races and 2v2 teams.
@@ -35,7 +35,7 @@
        SETUP:
        1) Create a free Supabase project.
        2) Turn ON "Allow new users to sign up" and "Allow anonymous sign-ins".
-       3) Run GLOBAL_SETUP.sql from this V16.12 package once.
+       3) Run GLOBAL_SETUP.sql from this V16.13 package once.
        4) Paste ONLY the Project URL and public publishable/anonymous key below.
        NEVER paste a secret or service-role key into browser code.
        Leave blank to keep private password-protected local profiles only.
@@ -50,7 +50,7 @@
       matchRpc: "submit_match_result",
       lobbyChannel: "ff-global-lobby",
 
-      // V16.12 room, team, ranking, reaction, bot, rematch, matchmaking, and cloud-account RPCs. Keep these names unchanged
+      // V16.13 room, team, ranking, reaction, bot, rematch, matchmaking, and cloud-account RPCs. Keep these names unchanged
       // unless you intentionally rename the SQL functions.
       createRoomRpc: "ff_create_room",
       joinRoomRpc: "ff_join_room",
@@ -119,8 +119,8 @@
       updateRoomV171Rpc: "ff_update_room_progress_v171",
       rematchVoteV171Rpc: "ff_vote_room_rematch_v171",
 
-      // V16.12 lets a verified cloud-backup owner reclaim the same public gamer tag on another browser.
-      cloudClaimRpc: "ff_claim_cloud_online_identity_v172"
+      // V16.13 verified cloud owner reconnects the same public gamer tag on this browser
+      cloudClaimV173Rpc: "ff_claim_cloud_online_identity_v173"
     };
     // Backward-compatible name retained for the original V16 leaderboard code.
     window.FF_LEADERBOARD_CONFIG = window.FF_ONLINE_CONFIG;
