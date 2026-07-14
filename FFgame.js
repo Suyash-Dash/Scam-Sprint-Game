@@ -11754,6 +11754,217 @@
     return v171FriendlyOnlineErrorCoreV172(error);
   };
 
+
+
+  /* ============================================================
+     25) V16.13 VERIFIED CROSS-BROWSER GAMER TAG RECONNECTION
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — all V16.12 features remain above.
+
+     FIXED:
+     - After Sign In & Restore, the same cloud-owned gamer tag can be
+       connected to Online Play on the current browser.
+     - The verified cloud session is claimed BEFORE the legacy public
+       alias upsert can trigger the duplicate-username error.
+     - Existing worldwide scores are retained by the V16.13 SQL merge.
+     ============================================================ */
+
+  if (DATA?.site) DATA.site.version = "16.13";
+
+  /* ------------------------------------------------------------
+     V16.13A) Register the stronger cloud identity-claim RPC
+     ------------------------------------------------------------ */
+  const v172GetGlobalConfigCoreV173 = v16GetGlobalConfig;
+
+  v16GetGlobalConfig = function v173Override_v16GetGlobalConfig() {
+    const base = v172GetGlobalConfigCoreV173();
+    const config = window.FF_ONLINE_CONFIG || window.FF_LEADERBOARD_CONFIG || {};
+
+    return {
+      ...base,
+      cloudClaimV173Rpc: String(
+        config.cloudClaimV173Rpc || "ff_claim_cloud_online_identity_v173"
+      )
+    };
+  };
+
+  function v173GamerTagKey(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLocaleLowerCase();
+  }
+
+  function v173MatchingCloudSession(profile) {
+    const cloudSession = v165CloudSession();
+    if (!profile || !cloudSession?.token) return null;
+
+    return v173GamerTagKey(cloudSession.username) === v173GamerTagKey(profile.username)
+      ? cloudSession
+      : null;
+  }
+
+  async function v173ClaimCurrentBrowserIdentity(profile) {
+    const cloudSession = v173MatchingCloudSession(profile);
+    const client = v16SupabaseClient();
+    const config = v16GetGlobalConfig();
+
+    if (!cloudSession) {
+      throw new Error(
+        "Sign in through Account Settings → Sign In & Backup with this exact gamer tag before reconnecting it to Online Play."
+      );
+    }
+
+    if (!client || !V16_ONLINE.user?.id) {
+      throw new Error("This browser must establish its secure Online Play identity first.");
+    }
+
+    const { data, error } = await client.rpc(config.cloudClaimV173Rpc, {
+      p_session_token: cloudSession.token,
+      p_username: profile.username
+    });
+
+    if (error) throw error;
+
+    v16UpdateProfile(profile.id, {
+      cloudUserId: V16_ONLINE.user.id,
+      cloudAccount: true,
+      onlineAuthMode: V16_ONLINE.user.is_anonymous ? "anonymous-cloud-verified" : "cloud-verified"
+    });
+
+    return data;
+  }
+
+  /* ------------------------------------------------------------
+     V16.13B) Connect Auth first, then claim the verified alias.
+     This fully replaces only the connection sequence; all room,
+     leaderboard, profile, and multiplayer code stays unchanged.
+     ------------------------------------------------------------ */
+  const v172EnsureAnonymousOnlineSessionCoreV173 = v162EnsureAnonymousOnlineSession;
+
+  v162EnsureAnonymousOnlineSession = async function v173Override_v162EnsureAnonymousOnlineSession() {
+    const client = v16SupabaseClient();
+    if (!client) {
+      throw new Error(
+        "Online Play is not configured. Add the Supabase Project URL and public publishable key in FFindex.html."
+      );
+    }
+
+    const profile = v16GetActiveProfile();
+    if (!profile) throw new Error("Choose a Scam Sprint profile first.");
+
+    if (!v16ProfileHasPassword(profile) || !v16IsProfileUnlocked(profile.id)) {
+      throw new Error("Unlock the protected profile before connecting to Online Play.");
+    }
+
+    let session = null;
+    const current = await client.auth.getSession();
+    if (current.error) throw current.error;
+
+    if (current.data?.session?.user) {
+      session = current.data.session;
+    } else {
+      const result = await client.auth.signInAnonymously({
+        options: {
+          data: {
+            username: profile.username,
+            display_name: profile.username,
+            game: "Scam Sprint",
+            auth_mode: "profile-name-only"
+          }
+        }
+      });
+
+      if (result.error) throw result.error;
+      if (!result.data?.session?.user) {
+        throw new Error("Supabase did not return an anonymous Online Play session.");
+      }
+
+      session = result.data.session;
+    }
+
+    V16_ONLINE.session = session;
+    V16_ONLINE.user = session.user;
+
+    const cloudSession = v165CloudSession();
+    const matchingCloudSession = v173MatchingCloudSession(profile);
+
+    if (cloudSession?.token && !matchingCloudSession) {
+      throw new Error(
+        `The current cloud backup is signed in as ${cloudSession.username || "another gamer tag"}. ` +
+        `Sign out of Backup, then sign in as ${profile.username}.`
+      );
+    }
+
+    if (matchingCloudSession) {
+      /* Critical V16.13 order: claim/transfer the existing alias before
+         any ordinary upsert attempts to use the unique gamer tag. */
+      await v173ClaimCurrentBrowserIdentity(profile);
+    } else {
+      const config = v16GetGlobalConfig();
+      const clean = v16SanitizeUsername(profile.username);
+      const { error } = await client.rpc(config.profileRpc, {
+        p_username: clean
+      });
+      if (error) throw error;
+    }
+
+    v16UpdateProfile(profile.id, {
+      cloudUserId: session.user.id,
+      cloudEmailMasked: null,
+      onlineAuthMode: matchingCloudSession
+        ? "anonymous-cloud-verified"
+        : (session.user.is_anonymous ? "anonymous" : "existing"),
+      globalShare: Boolean(profile.globalShare)
+    });
+
+    return session;
+  };
+
+  /* ------------------------------------------------------------
+     V16.13C) If the player signs in to Backup while an Online Play
+     Auth session already exists, claim the gamer tag immediately.
+     ------------------------------------------------------------ */
+  const v172CloudLoginCoreV173 = v165CloudLogin;
+
+  v165CloudLogin = async function v173Override_v165CloudLogin(username, password) {
+    const data = await v172CloudLoginCoreV173(username, password);
+    const profile = v16GetActiveProfile();
+
+    if (profile && V16_ONLINE.user && v173MatchingCloudSession(profile)) {
+      await v173ClaimCurrentBrowserIdentity(profile);
+    }
+
+    return data;
+  };
+
+  /* ------------------------------------------------------------
+     V16.13D) Error text specific to ownership versus ordinary name use
+     ------------------------------------------------------------ */
+  const v172FriendlyOnlineErrorCoreV173 = v162FriendlyOnlineError;
+
+  v162FriendlyOnlineError = function v173Override_v162FriendlyOnlineError(error) {
+    const raw = String(error?.message || error || "");
+
+    if (/cloud backup is signed in as|sign out of Backup/i.test(raw)) {
+      return raw;
+    }
+
+    if (/cloud session expired/i.test(raw)) {
+      return "Your Sign In & Backup session expired. Sign in again, then press Connect to Online Play.";
+    }
+
+    if (/does not own that public gamer tag/i.test(raw)) {
+      return "This cloud password does not own the active gamer tag. Sign in with the matching gamer tag and password.";
+    }
+
+    if (/duplicate key|unique.*username|already connected to another online identity/i.test(raw)) {
+      return "This gamer tag is already registered. Open Sign In & Backup, sign in with this gamer tag and its password, then press Connect to Online Play again.";
+    }
+
+    return v172FriendlyOnlineErrorCoreV173(error);
+  };
+
   /* ============================================================
      19) Start the App
      ============================================================ */
