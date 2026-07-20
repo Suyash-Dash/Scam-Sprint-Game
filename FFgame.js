@@ -11965,6 +11965,740 @@
     return v172FriendlyOnlineErrorCoreV173(error);
   };
 
+
+
+  /* ============================================================
+     26) V16.14 RESPONSIVE CONTROLS + STANDARD ENDLESS + DEMO KIOSK
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — all V16.13 gameplay, online systems, profiles,
+     rankings, rooms, and all 657 games remain above unchanged.
+
+     ADDED:
+     - A top Full Game / Demo Kiosk sliding switch.
+     - A kiosk-safe five-game demo with a quick local gamer tag and
+       its own this-device demo leaderboard.
+     - Locked feature cards in Demo Kiosk mode; no online/account
+       systems are exposed there.
+     - Standard-only Endless Mode settings with no difficulty or
+       audience controls.
+     - Near-zero passive Trust healing: one Trust point only at each
+       five-answer combo milestone, and none in Endless Mode.
+     - Stronger computer/phone layouts, reliable touchscreen release,
+       orientation-aware phone motion controls, and motion fallback.
+     ============================================================ */
+
+  if (DATA?.site) DATA.site.version = "16.14";
+
+  const V174_EXPERIENCE_KEY = "ffV174ExperienceMode";
+  const V174_KIOSK_NAME_KEY = "ffV174KioskName";
+  const V174_KIOSK_BOARD_KEY = "ffV174KioskLeaderboard";
+  const V174_KIOSK_MAX_ROWS = 12;
+
+  function v174ExperienceMode() {
+    return localStorage.getItem(V174_EXPERIENCE_KEY) === "kiosk" ? "kiosk" : "normal";
+  }
+
+  function v174IsKioskMode() {
+    return v174ExperienceMode() === "kiosk";
+  }
+
+  function v174ApplyExperienceMode() {
+    const kiosk = v174IsKioskMode();
+    document.body.classList.toggle("v174-kiosk-mode", kiosk);
+    document.body.classList.toggle("v174-normal-mode", !kiosk);
+    document.documentElement.dataset.experienceMode = kiosk ? "kiosk" : "normal";
+  }
+
+  function v174SetExperienceMode(mode) {
+    const next = mode === "kiosk" ? "kiosk" : "normal";
+    localStorage.setItem(V174_EXPERIENCE_KEY, next);
+    state.kioskDemo = false;
+    state.kioskUsername = "";
+    clearLoops();
+    v174ReleaseAllMovementKeys();
+
+    /* Leaving an online room is best-effort; switching the local display
+       mode must never get stuck waiting for the network. */
+    if (next === "kiosk" && V16_ONLINE?.room?.id && typeof v162LeaveRoom === "function") {
+      Promise.resolve(v162LeaveRoom({ callServer: true })).catch(() => {});
+    }
+
+    v174ApplyExperienceMode();
+    showHome();
+  }
+
+  function v174ModeSwitchHtml() {
+    const kiosk = v174IsKioskMode();
+    return `<div class="v174-experience-switch ${kiosk ? "is-kiosk" : "is-normal"}" role="group" aria-label="Game experience">
+      <span class="v174-switch-slider" aria-hidden="true"></span>
+      <button type="button" data-v174-experience="normal" class="${kiosk ? "" : "active"}" aria-pressed="${kiosk ? "false" : "true"}">Full Game</button>
+      <button type="button" data-v174-experience="kiosk" class="${kiosk ? "active" : ""}" aria-pressed="${kiosk ? "true" : "false"}">Demo Kiosk</button>
+    </div>`;
+  }
+
+  const v173TopbarCoreV174 = topbar;
+  topbar = function v174Override_topbar() {
+    return `
+      <div class="topbar v174-topbar">
+        <div class="topbar-left">
+          <div class="logo-mark">FF</div>
+          <div class="logo-copy"><strong>${esc(DATA.site.gameName)}</strong><small>${esc(DATA.site.tagline)}</small></div>
+        </div>
+        <div class="v174-topbar-center">${v174ModeSwitchHtml()}</div>
+        <div class="topbar-actions">
+          <button class="icon-btn accessibility-btn" id="accessibilityBtn" type="button" aria-pressed="false" title="Toggle Easy View">A+</button>
+          <button class="icon-btn ${state.soundOn ? "sound-on" : "sound-off"}" id="soundBtn" type="button" title="Toggle sound">${state.soundOn ? "🔊" : "🔇"}</button>
+          <button class="icon-btn" id="homeBtn" type="button" title="Home">⌂</button>
+        </div>
+      </div>`;
+  };
+
+  const v173WireTopbarCoreV174 = wireTopbar;
+  wireTopbar = function v174Override_wireTopbar() {
+    on($("#homeBtn"), "click", showHome);
+    on($("#soundBtn"), "click", toggleSound);
+    on($("#accessibilityBtn"), "click", v164ToggleEasyView);
+    $$('[data-v174-experience]').forEach((button) => on(button, "click", () => {
+      const requested = button.dataset.v174Experience;
+      if (requested === v174ExperienceMode()) return;
+      v174SetExperienceMode(requested);
+    }));
+    updateSoundButton();
+    v164ApplyAccessibility();
+    v174ApplyExperienceMode();
+  };
+
+  /* ------------------------------------------------------------
+     V16.14A) Viewport and touchscreen reliability on any device
+     ------------------------------------------------------------ */
+  function v174UpdateResponsiveClasses() {
+    const viewport = window.visualViewport;
+    const width = Math.round(viewport?.width || window.innerWidth || document.documentElement.clientWidth || 0);
+    const height = Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight || 0);
+    const coarse = matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+
+    document.documentElement.style.setProperty("--ff-vw", `${width}px`);
+    document.documentElement.style.setProperty("--ff-vh", `${height}px`);
+    document.documentElement.style.setProperty("--ff-app-height", `${height}px`);
+    document.body.classList.toggle("v174-phone-layout", width <= 640 || (coarse && width <= 900));
+    document.body.classList.toggle("v174-tablet-layout", width > 640 && width <= 1050);
+    document.body.classList.toggle("v174-short-layout", height <= 620);
+    document.body.classList.toggle("v174-touch-capable", coarse);
+    document.body.classList.toggle("v174-landscape", width > height);
+  }
+
+  function v174ReleaseAllMovementKeys() {
+    ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].forEach((key) => {
+      const code = key === " " ? "Space" : key;
+      document.dispatchEvent(new KeyboardEvent("keyup", { key, code, bubbles: true, cancelable: true }));
+    });
+    document.querySelectorAll(".v164-control-pad button.pressed, .control-pad button.pressed").forEach((button) => {
+      button.classList.remove("pressed");
+    });
+  }
+
+  function v174InstallResponsiveRuntime() {
+    if (window.__ffV174ResponsiveInstalled) return;
+    window.__ffV174ResponsiveInstalled = true;
+
+    v174UpdateResponsiveClasses();
+    window.addEventListener("resize", v174UpdateResponsiveClasses, { passive: true });
+    window.addEventListener("orientationchange", () => setTimeout(v174UpdateResponsiveClasses, 80), { passive: true });
+    window.visualViewport?.addEventListener("resize", v174UpdateResponsiveClasses, { passive: true });
+    window.visualViewport?.addEventListener("scroll", v174UpdateResponsiveClasses, { passive: true });
+
+    ["pointerup", "pointercancel", "touchend", "touchcancel", "blur"].forEach((type) => {
+      window.addEventListener(type, v174ReleaseAllMovementKeys, { passive: true });
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) v174ReleaseAllMovementKeys();
+    });
+  }
+
+  const v173RenderCoreV174 = render;
+  render = function v174Override_render(html) {
+    v173RenderCoreV174(html);
+    v174InstallResponsiveRuntime();
+    v174UpdateResponsiveClasses();
+    v174ApplyExperienceMode();
+  };
+
+  /* ------------------------------------------------------------
+     V16.14B) Orientation-aware phone motion with gravity fallback
+     ------------------------------------------------------------ */
+  function v174MotionAxes(betaValue, gammaValue) {
+    const beta = Number(betaValue || 0);
+    const gamma = Number(gammaValue || 0);
+    const angle = Number(screen.orientation?.angle ?? window.orientation ?? 0);
+    let x = gamma;
+    let y = beta - 45;
+
+    if (angle === 90) {
+      const previousX = x;
+      x = y;
+      y = -previousX;
+    } else if (angle === 270 || angle === -90) {
+      const previousX = x;
+      x = -y;
+      y = previousX;
+    } else if (angle === 180) {
+      x = -x;
+      y = -y;
+    }
+
+    return { x, y };
+  }
+
+  function v174InstallMotionTracking() {
+    if (window.__ffV174MotionInstalled) return;
+    window.__ffV174MotionInstalled = true;
+
+    window.addEventListener("deviceorientation", (event) => {
+      const axes = v174MotionAxes(event.beta, event.gamma);
+      state.v174LastOrientationAt = Date.now();
+      state.tiltX = clamp(axes.x - Number(state.tiltBaseline || 0), -32, 32);
+      state.tiltY = clamp(axes.y - Number(state.tiltBaselineY || 0), -32, 32);
+    }, { passive: true });
+
+    /* Some Android/WebView devices report gravity more reliably than
+       DeviceOrientation. Use it only when orientation data is stale. */
+    window.addEventListener("devicemotion", (event) => {
+      if (Date.now() - Number(state.v174LastOrientationAt || 0) < 550) return;
+      const gravity = event.accelerationIncludingGravity;
+      if (!gravity) return;
+      const angle = Number(screen.orientation?.angle ?? window.orientation ?? 0);
+      let x = Number(gravity.x || 0) * -4;
+      let y = Number(gravity.y || 0) * 4;
+      if (angle === 90) [x, y] = [y, -x];
+      if (angle === 270 || angle === -90) [x, y] = [-y, x];
+      state.tiltX = clamp(x - Number(state.tiltBaseline || 0), -32, 32);
+      state.tiltY = clamp(y - Number(state.tiltBaselineY || 0), -32, 32);
+    }, { passive: true });
+  }
+
+  const v173EnableMotionCoreV174 = v16EnableMotionControls;
+  v16EnableMotionControls = async function v174Override_v16EnableMotionControls() {
+    v174InstallMotionTracking();
+    const enabled = await v173EnableMotionCoreV174();
+    if (enabled) {
+      localStorage.setItem("ffV16MotionEnabled", "yes");
+      setTimeout(() => v16CalibrateTilt(), 220);
+      const status = $("#v164TiltStatus");
+      if (status) status.textContent = "Motion active. Tilt gently; touch controls remain available.";
+    }
+    return enabled;
+  };
+
+  v16CalibrateTilt = function v174Override_v16CalibrateTilt() {
+    state.tiltBaseline = Number(state.tiltX || 0) + Number(state.tiltBaseline || 0);
+    state.tiltBaselineY = Number(state.tiltY || 0) + Number(state.tiltBaselineY || 0);
+    state.tiltX = 0;
+    state.tiltY = 0;
+    toast("Phone motion centered.");
+  };
+
+  const v173EnhanceRoundCoreV174 = v164EnhanceRenderedRound;
+  v164EnhanceRenderedRound = function v174Override_v164EnhanceRenderedRound() {
+    v173EnhanceRoundCoreV174();
+    v174InstallMotionTracking();
+    v174UpdateResponsiveClasses();
+
+    const round = state.current;
+    const controller = $("#v164MobileController");
+    if (controller && round && V164_MOVEMENT_TYPES.has(round.type)) {
+      controller.classList.add("v174-universal-controller");
+      const label = controller.querySelector(".v164-controller-label span");
+      if (label) label.textContent = "Touch + Phone Motion";
+      const tiltButton = $("#v164TiltBtn");
+      if (tiltButton) tiltButton.textContent = state.deviceMode === "motion" ? "📐 Recenter" : "📐 Enable Motion";
+
+      if (state.deviceMode === "motion") {
+        v164StartTiltBridge(round);
+        const status = $("#v164TiltStatus");
+        if (status) status.textContent = "Motion active. Touch controls are still available.";
+      } else if (localStorage.getItem("ffV16MotionEnabled") === "yes" && matchMedia("(pointer: coarse)").matches) {
+        /* Permission was previously granted. Reuse motion without showing
+           another setup page; iOS still requires the original user gesture. */
+        state.deviceMode = "motion";
+        v164StartTiltBridge(round);
+      }
+    }
+  };
+
+  /* V16.4 accidentally drew the same round twice. One render is enough and
+     avoids duplicated touch handlers or overlapping minigame layouts. */
+  renderRound = function v174Override_renderRound() {
+    v163RenderRound();
+    requestAnimationFrame(v164EnhanceRenderedRound);
+  };
+
+  /* ------------------------------------------------------------
+     V16.14C) Standard-only Endless Mode
+     ------------------------------------------------------------ */
+  const v173StartEndlessCoreV174 = startEndless;
+  startEndless = function v174Override_startEndless() {
+    if (v174IsKioskMode()) return v174LockedFeature("Endless Mode");
+    state.playerMode = "family";
+    state.difficulty = "medium";
+    state.deviceMode = localStorage.getItem("ffV16MotionEnabled") === "yes" && matchMedia("(pointer: coarse)").matches
+      ? "motion"
+      : "auto";
+    return v173StartEndlessCoreV174();
+  };
+
+  showEndlessSetup = function v174Override_showEndlessSetup() {
+    if (v174IsKioskMode()) return v174LockedFeature("Endless Mode");
+    render(`<section class="screen">${topbar()}<div class="panel v174-endless-standard-panel">
+      <span class="eyebrow">Endless Mode · Fixed Standard Rules</span>
+      <h1>Standard difficulty. Endless randomized games.</h1>
+      <p>Endless Mode always uses balanced timing and Standard difficulty. There are no difficulty or audience controls in this mode. Touch, mouse, keyboard, and phone motion adapt automatically to the current device.</p>
+      <div class="v174-standard-rules">
+        <article><span>🎯</span><strong>Standard difficulty</strong><p>One consistent ruleset keeps Endless rankings comparable.</p></article>
+        <article><span>♾️</span><strong>No round limit</strong><p>New randomized games continue until Trust reaches zero.</p></article>
+        <article><span>🛡️</span><strong>Very limited recovery</strong><p>Correct combos do not refill Trust in Endless Mode.</p></article>
+        <article><span>📱</span><strong>Adaptive controls</strong><p>Use touch, keyboard, mouse, or optional phone motion.</p></article>
+      </div>
+      <div class="button-row"><button class="btn" id="endlessBackBtn">Back Home</button><button class="btn btn-primary" id="endlessStandardStartBtn">Start Standard Endless</button></div>
+    </div></section>`);
+    wireTopbar();
+    on($("#endlessBackBtn"), "click", showHome);
+    on($("#endlessStandardStartBtn"), "click", () => v16RequireUnlocked(startEndless));
+  };
+
+  const v173ResumeProgressCoreV174 = v16ResumeProgress;
+  v16ResumeProgress = function v174Override_v16ResumeProgress() {
+    if (v174IsKioskMode()) return v174LockedFeature("Saved Runs");
+    const profile = v16GetActiveProfile();
+    if (profile?.progress?.runMode === "endless") {
+      v16UpdateProfile(profile.id, {
+        progress: {
+          ...profile.progress,
+          playerMode: "family",
+          difficulty: "medium",
+          deviceMode: localStorage.getItem("ffV16MotionEnabled") === "yes" ? "motion" : "auto"
+        }
+      });
+    }
+    return v173ResumeProgressCoreV174();
+  };
+
+  /* ------------------------------------------------------------
+     V16.14D) Passive healing reduced to nearly zero
+     ------------------------------------------------------------ */
+  const v173PassRoundCoreV174 = passRound;
+  passRound = function v174Override_passRound(headline) {
+    if (state.answered) return;
+    const trustBefore = Number(state.trust || 0);
+    v173PassRoundCoreV174(headline);
+    if (!state.answered) return;
+
+    const milestoneRecovery = state.runMode !== "endless" && state.streak > 0 && state.streak % 5 === 0 ? 1 : 0;
+    state.trust = clamp(trustBefore + milestoneRecovery, 0, 100);
+    updateBars();
+
+    if (milestoneRecovery > 0) {
+      const feedback = $("#feedbackHost .small");
+      if (feedback) feedback.textContent += " · +1 Trust combo milestone";
+    }
+  };
+
+  /* ------------------------------------------------------------
+     V16.14E) Demo Kiosk: quick local name + five games only
+     ------------------------------------------------------------ */
+  function v174ReadKioskBoard() {
+    const rows = v16ReadJson(V174_KIOSK_BOARD_KEY, []);
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  function v174WriteKioskBoard(rows) {
+    v16WriteJson(V174_KIOSK_BOARD_KEY, rows.slice(0, V174_KIOSK_MAX_ROWS));
+  }
+
+  function v174KioskName() {
+    return String(localStorage.getItem(V174_KIOSK_NAME_KEY) || "").trim();
+  }
+
+  function v174CleanKioskName(value) {
+    return String(value || "")
+      .replace(/[<>]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 18);
+  }
+
+  function v174QuickKioskName() {
+    const adjectives = ["Quick", "Bright", "Safe", "Sharp", "Brave", "Alert", "Swift", "Smart"];
+    const nouns = ["Shield", "Scout", "Defender", "Detective", "Guardian", "Spotter"];
+    return `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]} ${Math.floor(10 + Math.random() * 90)}`;
+  }
+
+  function v174SaveKioskName(value) {
+    const clean = v174CleanKioskName(value);
+    if (clean.length < 2) throw new Error("Enter at least two characters for the demo gamer tag.");
+    localStorage.setItem(V174_KIOSK_NAME_KEY, clean);
+    return clean;
+  }
+
+  function v174RecordKioskResult() {
+    const username = v174CleanKioskName(state.kioskUsername || v174KioskName() || "Demo Player");
+    const score = Number(state.score || 0);
+    const rows = v174ReadKioskBoard();
+    const index = rows.findIndex((row) => String(row.username || "").toLowerCase() === username.toLowerCase());
+    const previous = index >= 0 ? rows[index] : null;
+    const next = {
+      username,
+      score: Math.max(Number(previous?.score || 0), score),
+      lastScore: score,
+      runs: Number(previous?.runs || 0) + 1,
+      updatedAt: v16NowIso()
+    };
+    if (index >= 0) rows[index] = next;
+    else rows.push(next);
+    rows.sort((a, b) => Number(b.score || 0) - Number(a.score || 0) || String(a.username).localeCompare(String(b.username)));
+    v174WriteKioskBoard(rows);
+    return next;
+  }
+
+  function v174KioskLeaderboardHtml(limit = 8) {
+    const rows = v174ReadKioskBoard().slice(0, limit);
+    if (!rows.length) return `<div class="v174-kiosk-empty">Play the five-game demo to create the first kiosk score.</div>`;
+    return `<div class="v174-kiosk-board" role="table">
+      <div class="v174-kiosk-row head" role="row"><span>Rank</span><span>Player</span><span>Best</span></div>
+      ${rows.map((row, index) => `<div class="v174-kiosk-row" role="row"><span>${index < 3 ? ["🥇","🥈","🥉"][index] : `#${index + 1}`}</span><strong>${esc(row.username)}</strong><b>${Number(row.score || 0).toLocaleString()}</b></div>`).join("")}
+    </div>`;
+  }
+
+  function v174ShowKioskHome() {
+    clearLoops();
+    v174InstallResponsiveRuntime();
+    document.body.classList.remove("game-active");
+    const username = v174KioskName();
+
+    render(`<section class="screen v174-kiosk-screen">${topbar()}<div class="panel v174-kiosk-panel">
+      <header class="v174-kiosk-hero">
+        <div><span class="eyebrow">Five-Game Demo Kiosk</span><h1>Fast scam-safety demo.</h1><p>Create a quick local gamer tag, play five randomized games, and compare scores on this device. Full accounts, online rooms, and saved runs stay locked in kiosk mode.</p></div>
+        <div class="v174-kiosk-badge">⚡ 5 games</div>
+      </header>
+
+      <div class="v174-kiosk-grid">
+        <section class="v174-kiosk-start-card">
+          <h2>Choose a demo gamer tag</h2>
+          <p>This nickname and score stay only on this browser.</p>
+          <form id="v174KioskNameForm" class="v174-kiosk-name-form">
+            <label for="v174KioskNameInput">Gamer tag</label>
+            <div><input id="v174KioskNameInput" maxlength="18" autocomplete="off" value="${esc(username)}" placeholder="Type a quick name"><button class="btn btn-secondary" id="v174QuickNameBtn" type="button">Quick Name</button></div>
+            <p class="form-error" id="v174KioskError"></p>
+            <button class="btn btn-primary v174-kiosk-play" type="submit">▶ Play the 5-Game Demo</button>
+          </form>
+        </section>
+
+        <section class="v174-kiosk-leaderboard-card">
+          <div class="leaderboard-title"><strong>🏆 Kiosk leaderboard</strong><span>This device only</span></div>
+          ${v174KioskLeaderboardHtml()}
+        </section>
+      </div>
+
+      <section class="v174-locked-features" aria-label="Locked full-game features">
+        ${[
+          ["🎮", "Arcade Run"], ["♾️", "Endless Mode"], ["🌎", "Online Play"],
+          ["👥", "Accounts"], ["🗂️", "Game Library"], ["🏆", "Full Leaderboards"]
+        ].map(([icon, label]) => `<button type="button" class="v174-locked-card" data-v174-locked="${esc(label)}"><span>${icon}</span><strong>${esc(label)}</strong><small>🔒 Full Game only</small></button>`).join("")}
+      </section>
+    </div></section>`);
+
+    wireTopbar();
+    on($("#v174QuickNameBtn"), "click", () => {
+      const input = $("#v174KioskNameInput");
+      if (input) input.value = v174QuickKioskName();
+    });
+    on($("#v174KioskNameForm"), "submit", (event) => {
+      event.preventDefault();
+      const error = $("#v174KioskError");
+      try {
+        const name = v174SaveKioskName($("#v174KioskNameInput")?.value || "");
+        if (error) error.textContent = "";
+        v174StartKioskDemo(name);
+      } catch (problem) {
+        if (error) error.textContent = problem.message || "Enter a gamer tag.";
+      }
+    });
+    $$('[data-v174-locked]').forEach((button) => on(button, "click", () => v174LockedFeature(button.dataset.v174Locked)));
+  }
+
+  function v174LockedFeature(label) {
+    toast(`${label || "This feature"} is locked in Demo Kiosk. Switch to Full Game at the top.`);
+    if (!v174IsKioskMode()) return showHome();
+    if (!$(".v174-kiosk-panel")) v174ShowKioskHome();
+  }
+
+  function v174SelectDemoRounds() {
+    const pool = ROUNDS.filter((round) => !["bossRush", "legacyBossRush"].includes(round.type));
+    const buckets = [
+      ["shieldCursor", "messageShieldRun", "textDodge", "scamRainDodge", "packetPaddle", "platformHints", "hintPlatformer", "starBridgeRun", "scamWhack", "fakeAdClean"],
+      ["dangerWebsite", "siteInspector", "freeSiteExit", "privacyExit", "passwordFill", "domainDuel", "qrScan", "qrLensFocus", "browserPatchRun", "linkBridge"],
+      ["gameChatReport", "lobbyMute", "emailBlock", "smsBlock", "smsReport", "chatRefuse", "romanceSwipe", "marketplaceMatch", "romanceEvidenceChat", "phoneTapSequence"],
+      ["attachmentFlash", "attachmentMemory", "fileDelete", "fileExplorerDelete", "downloadDelete", "dragTrash", "giftCardShredder", "passwordVaultDrag"],
+      ["safeChoice", "deepfakeCall", "deepfakeSpot", "bankStatementHunt", "permissionsToggle", "permissionToggle", "familyCallOrder", "mfaShield", "moneyGuard", "categoryMatch", "safeWordChallenge"]
+    ];
+    const chosen = [];
+    const used = new Set();
+    buckets.forEach((types) => {
+      const round = sample(pool.filter((item) => types.includes(item.type) && !used.has(item.id)), 1)[0];
+      if (round) { chosen.push(round); used.add(round.id); }
+    });
+    while (chosen.length < 5) {
+      const next = sample(pool.filter((item) => !used.has(item.id)), 1)[0];
+      if (!next) break;
+      chosen.push(next); used.add(next.id);
+    }
+    return shuffle(chosen).slice(0, 5);
+  }
+
+  function v174StartKioskDemo(username = v174KioskName()) {
+    clearLoops();
+    ensureAudio();
+    v16NewRunState("demo");
+    state.kioskDemo = true;
+    state.kioskUsername = v174SaveKioskName(username || v174QuickKioskName());
+    state.playerMode = "family";
+    state.difficulty = "medium";
+    state.deviceMode = localStorage.getItem("ffV16MotionEnabled") === "yes" && matchMedia("(pointer: coarse)").matches ? "motion" : "auto";
+    state.selected = v174SelectDemoRounds();
+    renderRound();
+  }
+
+  const v173ShowResultsCoreV174 = showResults;
+  showResults = function v174Override_showResults(lost) {
+    if (!state.kioskDemo || !v174IsKioskMode()) return v173ShowResultsCoreV174(lost);
+
+    clearLoops();
+    document.body.classList.remove("game-active");
+    const result = v174RecordKioskResult();
+    const username = result.username;
+
+    render(`<section class="screen v174-kiosk-results">${topbar()}<div class="panel v174-kiosk-results-panel">
+      <span class="eyebrow">Demo Kiosk recap · ${esc(username)}</span>
+      <h1>${lost ? "Demo complete—keep practicing!" : "Five-game demo complete!"}</h1>
+      <p>Your score was saved only to this kiosk browser.</p>
+      <div class="result-grid"><div><strong>${Number(state.score || 0).toLocaleString()}</strong><span>score</span></div><div><strong>${state.correct}</strong><span>cleared</span></div><div><strong>${state.bestStreak}</strong><span>best combo</span></div><div><strong>${Number(result.score || 0).toLocaleString()}</strong><span>personal best</span></div></div>
+      <section class="v174-kiosk-leaderboard-card"><div class="leaderboard-title"><strong>🏆 Kiosk leaderboard</strong><span>This device only</span></div>${v174KioskLeaderboardHtml()}</section>
+      <div class="button-row"><button class="btn btn-primary" id="v174KioskAgainBtn">Play Another Demo</button><button class="btn btn-secondary" id="v174KioskChangeBtn">Change Gamer Tag</button></div>
+    </div></section>`);
+
+    wireTopbar();
+    on($("#v174KioskAgainBtn"), "click", () => v174StartKioskDemo(username));
+    on($("#v174KioskChangeBtn"), "click", () => {
+      localStorage.removeItem(V174_KIOSK_NAME_KEY);
+      v174ShowKioskHome();
+    });
+  };
+
+  /* Kiosk demos never create protected-profile resume data. */
+  const v173SaveProgressCoreV174 = v16SaveProgressSnapshot;
+  v16SaveProgressSnapshot = function v174Override_v16SaveProgressSnapshot() {
+    if (state.kioskDemo || v174IsKioskMode()) return;
+    return v173SaveProgressCoreV174();
+  };
+
+  /* ------------------------------------------------------------
+     V16.14F) Lock every non-demo entry point only while in kiosk
+     ------------------------------------------------------------ */
+  const v173ShowHomeCoreV174 = showHome;
+  const v173ShowSetupCoreV174 = showSetup;
+  const v173ShowLibraryCoreV174 = showLibrary;
+  const v173ShowLeaderboardCoreV174 = showLeaderboard;
+  const v173ShowProfileManagerCoreV174 = showProfileManager;
+  const v173ShowMultiplayerCoreV174 = showMultiplayerLobby;
+  const v173StartGameCoreV174 = startGame;
+  const v173StartDemoCoreV174 = startDemo;
+  const v173StartPracticeCoreV174 = startPractice;
+
+  showHome = function v174Override_showHome() {
+    state.kioskDemo = false;
+    v174ApplyExperienceMode();
+    if (v174IsKioskMode()) return v174ShowKioskHome();
+    const result = v173ShowHomeCoreV174();
+    const endlessCopy = $("#endlessBtn small");
+    if (endlessCopy) endlessCopy.textContent = "Standard difficulty · endless rounds";
+    return result;
+  };
+
+  showSetup = function v174Override_showSetup() {
+    return v174IsKioskMode() ? v174LockedFeature("Arcade Run") : v173ShowSetupCoreV174();
+  };
+
+  showLibrary = function v174Override_showLibrary() {
+    return v174IsKioskMode() ? v174LockedFeature("Game Library") : v173ShowLibraryCoreV174();
+  };
+
+  showLeaderboard = function v174Override_showLeaderboard(mode) {
+    return v174IsKioskMode() ? v174LockedFeature("Full Leaderboards") : v173ShowLeaderboardCoreV174(mode);
+  };
+
+  showProfileManager = function v174Override_showProfileManager(tab) {
+    return v174IsKioskMode() ? v174LockedFeature("Accounts") : v173ShowProfileManagerCoreV174(tab);
+  };
+
+  showMultiplayerLobby = function v174Override_showMultiplayerLobby() {
+    return v174IsKioskMode() ? v174LockedFeature("Online Play") : v173ShowMultiplayerCoreV174();
+  };
+
+  startGame = function v174Override_startGame() {
+    return v174IsKioskMode() ? v174LockedFeature("Arcade Run") : v173StartGameCoreV174();
+  };
+
+  startDemo = function v174Override_startDemo() {
+    return v174IsKioskMode() ? v174StartKioskDemo() : v173StartDemoCoreV174();
+  };
+
+  startPractice = function v174Override_startPractice(index) {
+    return v174IsKioskMode() ? v174LockedFeature("Practice") : v173StartPracticeCoreV174(index);
+  };
+
+  v174InstallResponsiveRuntime();
+  v174InstallMotionTracking();
+  v174ApplyExperienceMode();
+
+
+  /* ============================================================
+     27) V16.15 UNIVERSAL SCROLLING + CONTAINER-BASED SCREEN FIT
+     ------------------------------------------------------------
+     The V16.14 game remains intact. This additive runtime makes the
+     document the reliable vertical scroller, forwards a mouse wheel
+     only when an older nested region traps it, and labels real action
+     surfaces so touch panning remains available everywhere else.
+     ============================================================ */
+
+  const V175_ACTION_SURFACE_SELECTOR = [
+    ".v14-stage", ".fall-field", ".maze-field", ".platform-stage",
+    ".spotlight-field", ".popup-field", ".rush-field", ".playfield",
+    ".drag-trash-stage", ".vault-stage", ".gift-stage",
+    ".v164-mobile-controller", ".v174-universal-controller",
+    ".control-pad", ".v164-control-pad"
+  ].join(",");
+
+  function v175ScrollingElement() {
+    return document.scrollingElement || document.documentElement || document.body;
+  }
+
+  function v175ScrollableAncestor(target, deltaY) {
+    let node = target instanceof Element ? target : target?.parentElement;
+
+    while (node && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      const overflowY = style.overflowY;
+      const scrollable = /auto|scroll|overlay/.test(overflowY) && node.scrollHeight > node.clientHeight + 2;
+
+      if (scrollable) {
+        const canMoveDown = deltaY > 0 && node.scrollTop + node.clientHeight < node.scrollHeight - 2;
+        const canMoveUp = deltaY < 0 && node.scrollTop > 1;
+        if (canMoveDown || canMoveUp) return node;
+      }
+
+      node = node.parentElement;
+    }
+
+    return null;
+  }
+
+  function v175UpdateScreenClasses() {
+    const viewport = window.visualViewport;
+    const width = Math.round(viewport?.width || window.innerWidth || 0);
+    const height = Math.round(viewport?.height || window.innerHeight || 0);
+    const ratio = height > 0 ? width / height : 1;
+
+    document.body.classList.toggle("v175-compact-screen", width < 820);
+    document.body.classList.toggle("v175-desktop-screen", width >= 820 && width < 1700);
+    document.body.classList.toggle("v175-wide-screen", width >= 1700);
+    document.body.classList.toggle("v175-ultrawide-screen", ratio >= 2.05 && width >= 1500);
+    document.body.classList.toggle("v175-short-screen", height <= 700);
+  }
+
+  function v175NormalizeRenderedLayout() {
+    const scroller = v175ScrollingElement();
+
+    document.documentElement.style.overflowY = "auto";
+    document.body.style.overflowY = "auto";
+    document.body.style.maxHeight = "none";
+    app.classList.add("v175-scroll-shell");
+
+    document.querySelectorAll(".microgame-zone, .v164-responsive-microgame").forEach((zone) => {
+      zone.classList.add("v175-scroll-region");
+    });
+
+    document.querySelectorAll(V175_ACTION_SURFACE_SELECTOR).forEach((surface) => {
+      surface.dataset.v175ActionSurface = "true";
+    });
+
+    document.querySelectorAll(".screen > .panel, .results-panel, .library-panel").forEach((panel) => {
+      panel.classList.add("v175-centered-panel");
+    });
+
+    /* Clear a stale fixed height left by a rotated phone or virtual keyboard. */
+    if (scroller && scroller.scrollHeight <= window.innerHeight + 2) {
+      document.body.style.minHeight = "100%";
+    }
+
+    v175UpdateScreenClasses();
+  }
+
+  function v175InstallScrollRuntime() {
+    if (window.__ffV175ScrollInstalled) return;
+    window.__ffV175ScrollInstalled = true;
+
+    let resizeFrame = 0;
+    const scheduleLayout = () => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(v175NormalizeRenderedLayout);
+    };
+
+    window.addEventListener("resize", scheduleLayout, { passive: true });
+    window.addEventListener("orientationchange", () => setTimeout(scheduleLayout, 90), { passive: true });
+    window.visualViewport?.addEventListener("resize", scheduleLayout, { passive: true });
+
+    /* Older nested game containers occasionally consume a wheel without
+       moving. When that happens, forward the delta to the page exactly once. */
+    document.addEventListener("wheel", (event) => {
+      if (event.defaultPrevented || Math.abs(event.deltaY) < 1) return;
+      if (event.ctrlKey || event.metaKey) return; // Preserve browser zoom.
+      if (v175ScrollableAncestor(event.target, event.deltaY)) return;
+
+      const scroller = v175ScrollingElement();
+      if (!scroller || scroller.scrollHeight <= scroller.clientHeight + 2) return;
+
+      const before = scroller.scrollTop;
+      requestAnimationFrame(() => {
+        if (Math.abs(scroller.scrollTop - before) < 1) {
+          scroller.scrollTop += event.deltaY;
+        }
+      });
+    }, { passive: true });
+
+    /* Keep the page scrollable after touch interruptions and browser UI changes. */
+    ["touchend", "touchcancel", "pointercancel"].forEach((type) => {
+      window.addEventListener(type, () => {
+        document.documentElement.style.overflowY = "auto";
+        document.body.style.overflowY = "auto";
+      }, { passive: true });
+    });
+
+    const observer = new MutationObserver(() => scheduleLayout());
+    observer.observe(app, { childList: true, subtree: true });
+
+    scheduleLayout();
+  }
+
+  const v174RenderCoreV175 = render;
+  render = function v175Override_render(html) {
+    v174RenderCoreV175(html);
+    v175InstallScrollRuntime();
+    requestAnimationFrame(v175NormalizeRenderedLayout);
+  };
+
+  v175InstallScrollRuntime();
+  v175NormalizeRenderedLayout();
+
+
   /* ============================================================
      19) Start the App
      ============================================================ */
