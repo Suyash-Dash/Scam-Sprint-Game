@@ -4620,3 +4620,823 @@ body.easy-view .room-player-card { padding: 14px 16px; }
     min-width: 0;
   }
 }
+
+
+/* ============================================================
+   V16.14 ADDITIVE STYLES — RESPONSIVE CONTROLS + DEMO KIOSK
+   All earlier V16.13 styles remain above unchanged.
+   ============================================================ */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
+body,
+button,
+input,
+select,
+textarea,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+input,
+select,
+label,
+.icon-btn,
+.btn,
+.home-mode-card,
+.account-nav-btn,
+.v174-locked-card {
+  touch-action: manipulation;
+}
+
+.microgame-zone,
+.v14-stage,
+.fall-field,
+.maze-field,
+.platform-stage,
+.v164-mobile-controller,
+.control-pad,
+.v164-control-pad {
+  touch-action: none;
+}
+
+.screen,
+.app-shell {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ff-app-height, 100dvh);
+}
+
+.panel,
+.round-panel,
+.microgame-zone,
+.v164-responsive-microgame,
+.home-grid,
+.v164-home-panel,
+.v174-kiosk-panel,
+.leaderboard-columns,
+.account-layout,
+.account-section,
+.result-grid,
+.recap-grid,
+.card-grid,
+.grid2,
+.grid3,
+.choice-grid,
+.button-row,
+.topbar,
+.topbar-left,
+.topbar-actions,
+.v174-topbar-center {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.round-panel > *,
+.home-grid > *,
+.leaderboard-columns > *,
+.account-layout > *,
+.v174-kiosk-grid > * {
+  min-width: 0;
+}
+
+.microgame-zone *,
+.panel *,
+.round-panel * {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}
+
+.v174-topbar {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto minmax(130px, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.v174-topbar-center {
+  display: flex;
+  justify-content: center;
+}
+
+.v174-topbar .topbar-actions {
+  justify-content: flex-end;
+}
+
+.v174-experience-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(94px, 1fr));
+  width: min(260px, 100%);
+  padding: 4px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  background: rgba(4,9,24,.72);
+  isolation: isolate;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.22);
+}
+
+.v174-experience-switch .v174-switch-slider {
+  position: absolute;
+  z-index: -1;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #7c5cff, #16d6d1);
+  transition: transform .22s ease;
+}
+
+.v174-experience-switch.is-kiosk .v174-switch-slider {
+  transform: translateX(100%);
+}
+
+.v174-experience-switch button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.v174-experience-switch button.active {
+  color: #fff;
+}
+
+.v174-kiosk-panel,
+.v174-kiosk-results-panel,
+.v174-endless-standard-panel {
+  width: min(1180px, 100%);
+  margin-inline: auto;
+}
+
+.v174-kiosk-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.v174-kiosk-hero h1,
+.v174-endless-standard-panel h1 {
+  font-size: clamp(2rem, 5vw, 4.5rem);
+}
+
+.v174-kiosk-badge {
+  flex: 0 0 auto;
+  padding: 14px 18px;
+  border: 1px solid rgba(255,200,87,.6);
+  border-radius: 18px;
+  color: #fff3cc;
+  background: rgba(255,200,87,.1);
+  font-weight: 950;
+}
+
+.v174-kiosk-grid {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  gap: 16px;
+}
+
+.v174-kiosk-start-card,
+.v174-kiosk-leaderboard-card {
+  min-width: 0;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 22px;
+  background: rgba(8,14,34,.62);
+}
+
+.v174-kiosk-name-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.v174-kiosk-name-form > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.v174-kiosk-name-form input {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 16px;
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 14px;
+  color: #fff;
+  background: #080f25;
+  font: inherit;
+  font-size: 1.05rem;
+}
+
+.v174-kiosk-play {
+  width: 100%;
+  min-height: 58px;
+}
+
+.v174-kiosk-board {
+  display: grid;
+  margin-top: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.v174-kiosk-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 100px;
+  gap: 10px;
+  align-items: center;
+  min-height: 50px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+}
+
+.v174-kiosk-row:last-child { border-bottom: 0; }
+.v174-kiosk-row.head { color: var(--muted); background: rgba(255,255,255,.05); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+.v174-kiosk-row b { text-align: right; color: #16d6d1; font-variant-numeric: tabular-nums; }
+.v174-kiosk-empty { padding: 24px; border: 1px dashed rgba(255,255,255,.18); border-radius: 16px; color: var(--muted); text-align: center; }
+
+.v174-locked-features {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.v174-locked-card {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  min-height: 112px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 17px;
+  color: var(--muted);
+  background: rgba(255,255,255,.035);
+  text-align: left;
+}
+
+.v174-locked-card > span { font-size: 1.45rem; filter: grayscale(.3); }
+.v174-locked-card strong { color: #dce5f7; }
+.v174-locked-card small { color: #ffc857; }
+
+.v174-standard-rules {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 22px 0;
+}
+
+.v174-standard-rules article {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 18px;
+  background: rgba(255,255,255,.045);
+}
+
+.v174-standard-rules article > span { font-size: 1.7rem; }
+.v174-standard-rules article p { margin: 0; }
+
+.v174-universal-controller {
+  position: sticky;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  z-index: 30;
+  margin-inline: auto;
+  border-color: rgba(22,214,209,.55);
+  box-shadow: 0 14px 38px rgba(0,0,0,.38);
+}
+
+.v174-universal-controller .v164-control-pad button {
+  min-width: 62px;
+  min-height: 62px;
+  font-size: 1.35rem;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.v174-touch-capable .btn,
+.v174-touch-capable button,
+.v174-touch-capable input,
+.v174-touch-capable select {
+  min-height: 48px;
+}
+
+.v174-touch-capable .choice-card,
+.v174-touch-capable .option-card,
+.v174-touch-capable .domain-card,
+.v174-touch-capable .profile-card,
+.v174-touch-capable .buyer-card {
+  min-height: 58px;
+}
+
+@media (max-width: 1080px) {
+  .v174-topbar {
+    grid-template-columns: minmax(180px, 1fr) auto;
+  }
+  .v174-topbar-center {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .v174-topbar .topbar-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .v174-locked-features { grid-template-columns: repeat(3, minmax(140px, 1fr)); }
+  .v174-standard-rules { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+  .round-panel,
+  .v164-responsive-round-panel {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell { padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right)); }
+  .screen { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+  .panel { padding: clamp(14px, 4vw, 22px); }
+  .topbar { padding: 9px 8px; }
+  .logo-copy small { display: none; }
+  .v174-experience-switch { width: min(100%, 330px); }
+  .v174-kiosk-hero { align-items: flex-start; flex-direction: column; }
+  .v174-kiosk-grid { grid-template-columns: 1fr; }
+  .v174-locked-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .v174-kiosk-name-form > div { grid-template-columns: 1fr; }
+  .v174-standard-rules { grid-template-columns: 1fr; }
+  .v174-kiosk-row { grid-template-columns: 54px minmax(0,1fr) 84px; padding-inline: 10px; }
+  .microgame-zone,
+  .v164-responsive-microgame {
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+  }
+  .card-grid,
+  .choice-grid,
+  .grid2,
+  .grid3,
+  .recap-grid,
+  .result-grid,
+  .leaderboard-columns,
+  .account-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .button-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .button-row > * { width: 100%; }
+  .round-panel h1,
+  .round-panel h2,
+  .panel h1 { line-height: 1.02; }
+  .v14-stage,
+  .fall-field,
+  .maze-field,
+  .platform-stage {
+    width: 100%;
+    min-height: clamp(260px, 52dvh, 480px);
+    max-height: 62dvh;
+  }
+  .v174-universal-controller {
+    width: 100%;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 430px) {
+  .v174-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px;
+  }
+  .logo-mark { width: 40px; height: 40px; }
+  .logo-copy strong { font-size: .78rem; line-height: 1.1; }
+  .topbar-actions { gap: 5px; }
+  .topbar-actions .icon-btn { width: 40px; min-width: 40px; height: 40px; min-height: 40px; }
+  .v174-experience-switch button { font-size: .75rem; padding-inline: 8px; }
+  .v174-locked-features { grid-template-columns: 1fr 1fr; }
+  .v174-locked-card { min-height: 100px; padding: 13px; }
+  .v174-universal-controller .v164-control-pad { grid-template-columns: repeat(3, minmax(54px, 1fr)); }
+  .v174-universal-controller .v164-control-pad button { min-width: 54px; min-height: 58px; }
+}
+
+@media (orientation: landscape) and (max-height: 620px) {
+  .screen { min-height: 100dvh; }
+  .panel { margin-block: 6px; }
+  .v174-topbar { position: relative; }
+  .v174-topbar-center { grid-column: auto; grid-row: auto; }
+  .v174-experience-switch { width: 230px; }
+  .round-panel { padding-block: 10px; }
+  .v14-stage,
+  .fall-field,
+  .maze-field,
+  .platform-stage { min-height: 230px; max-height: 62dvh; }
+  .v174-universal-controller { position: relative; bottom: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v174-experience-switch .v174-switch-slider { transition: none; }
+}
+
+
+/* ============================================================
+   V16.15 ADDITIVE STYLES — UNIVERSAL SCROLLING + SCREEN FIT
+   ------------------------------------------------------------
+   Nothing above is removed. These final rules repair page scrolling
+   and prevent desktop/monitor layouts from stretching too widely.
+   All game-specific action surfaces remain fully interactive.
+   ============================================================ */
+
+/* 01) The document itself must always be the main vertical scroller. */
+html {
+  width: 100%;
+  min-height: 100%;
+  height: auto !important;
+  overflow-x: clip !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto !important;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+body.game-active,
+body.v174-phone-layout,
+body.v174-tablet-layout,
+body.v174-short-layout {
+  width: 100%;
+  min-height: 100%;
+  height: auto !important;
+  max-height: none !important;
+  overflow-x: clip !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: auto !important;
+  touch-action: pan-y pinch-zoom;
+}
+
+#app,
+.app-shell,
+.screen {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* 02) Restore natural vertical panning around every minigame. */
+.microgame-zone,
+.v164-responsive-microgame,
+.v165-round-safe-area,
+.v175-scroll-region {
+  max-height: none !important;
+  overflow-x: clip !important;
+  overflow-y: visible !important;
+  overscroll-behavior: auto !important;
+  touch-action: pan-y pinch-zoom !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Only the actual movement/drag surface captures a finger. The page
+   around it continues to scroll normally on phones and touch laptops. */
+.v14-stage,
+.fall-field,
+.maze-field,
+.platform-stage,
+.spotlight-field,
+.popup-field,
+.rush-field,
+.playfield,
+.drag-trash-stage,
+.vault-stage,
+.gift-stage,
+.v164-mobile-controller,
+.v174-universal-controller,
+.control-pad,
+.v164-control-pad,
+[data-v175-action-surface="true"] {
+  touch-action: none !important;
+  overscroll-behavior: contain;
+}
+
+/* Forms, cards, buttons, and swipe games retain vertical page panning. */
+.swipe-stage,
+.v164-swipe-stage,
+.profile-card,
+.buyer-card,
+.choice-card,
+.option-card,
+.domain-card,
+.file-card,
+.phone-screen,
+.browser-window,
+.account-section,
+.v174-kiosk-panel {
+  touch-action: pan-y pinch-zoom;
+}
+
+/* 03) Center the game on large monitors instead of filling every pixel. */
+.app-shell,
+.v175-scroll-shell {
+  width: min(1440px, calc(100% - clamp(20px, 4vw, 72px))) !important;
+  max-width: 1440px !important;
+  margin-inline: auto !important;
+  padding-block: clamp(12px, 2vh, 28px) !important;
+  align-content: start !important;
+}
+
+.screen {
+  width: 100%;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.screen > .panel,
+.v164-home-panel,
+.v174-kiosk-panel,
+.v174-kiosk-results-panel,
+.v174-endless-standard-panel,
+.results-panel,
+.library-panel,
+.account-shell,
+.v175-centered-panel {
+  width: 100%;
+  max-width: 1360px;
+  margin-inline: auto;
+}
+
+.round-panel,
+.v164-responsive-round-panel {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding: clamp(18px, 2.6vw, 38px);
+}
+
+.microgame-zone,
+.v164-responsive-microgame {
+  width: min(1120px, 100%);
+  margin-inline: auto;
+}
+
+/* 04) Keep action games readable and usable instead of ultrawide. */
+.v14-stage,
+.fall-field,
+.maze-field,
+.platform-stage,
+.spotlight-field,
+.popup-field,
+.rush-field,
+.playfield,
+.drag-trash-stage,
+.vault-stage,
+.gift-stage,
+.phone-screen,
+.swipe-stage,
+.v164-swipe-stage,
+.romance-live,
+.browser-window,
+.desktop-window {
+  width: min(100%, 980px) !important;
+  max-width: 980px !important;
+  margin-inline: auto;
+}
+
+.v164-swipe-card,
+.v164-swipe-card.profile-card,
+.v164-swipe-card.buyer-card {
+  width: min(720px, 100%) !important;
+  max-width: 720px !important;
+}
+
+/* Inline/fixed widths from individual rounds may shrink but never overflow. */
+.microgame-zone > *,
+.v164-responsive-microgame > *,
+.round-panel > *,
+.microgame-zone [style*="width"],
+.v164-responsive-microgame [style*="width"] {
+  max-width: 100%;
+  min-width: 0;
+}
+
+canvas,
+svg,
+video,
+img {
+  max-width: 100% !important;
+  height: auto;
+}
+
+/* 05) Universal grids reflow according to the available container width. */
+.grid2,
+.leaderboard-columns,
+.result-grid,
+.recap-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+}
+
+.grid3,
+.card-grid,
+.choice-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr));
+}
+
+.button-row {
+  align-items: stretch;
+}
+
+.button-row > * {
+  max-width: 100%;
+}
+
+table,
+.table-wrap,
+.leaderboard-table,
+.data-table {
+  max-width: 100%;
+}
+
+.table-wrap,
+.leaderboard-table,
+.data-table {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 06) Prevent giant typography and overly long lines on monitors. */
+.panel h1,
+.round-panel h1,
+.v164-home-panel h1,
+.v174-kiosk-panel h1 {
+  font-size: clamp(2rem, 4.2vw, 4.4rem);
+  line-height: .98;
+}
+
+.panel h2,
+.round-panel h2 {
+  font-size: clamp(1.45rem, 2.8vw, 2.8rem);
+}
+
+.scenario-text,
+.command-banner,
+.panel > p,
+.round-panel > p {
+  max-width: 78ch;
+}
+
+/* 07) Give sticky touch controls enough room without covering answers. */
+.round-panel:has(.v174-universal-controller),
+.microgame-zone:has(.v174-universal-controller) {
+  padding-bottom: max(116px, calc(96px + env(safe-area-inset-bottom)));
+}
+
+.v174-universal-controller {
+  max-width: 720px;
+}
+
+/* 08) Laptop and normal desktop widths. */
+@media (min-width: 761px) and (max-width: 1366px) {
+  .app-shell,
+  .v175-scroll-shell {
+    width: min(1220px, calc(100% - 24px)) !important;
+  }
+
+  .round-panel,
+  .v164-responsive-round-panel {
+    max-width: 1160px;
+  }
+
+  .microgame-zone,
+  .v164-responsive-microgame {
+    width: min(1040px, 100%);
+  }
+}
+
+/* 09) Very wide and high-resolution monitors stay centered and compact. */
+@media (min-width: 1800px) {
+  .app-shell,
+  .v175-scroll-shell {
+    width: min(1480px, calc(100% - 96px)) !important;
+    max-width: 1480px !important;
+  }
+
+  .panel {
+    padding: clamp(26px, 2vw, 42px);
+  }
+
+  .microgame-zone,
+  .v164-responsive-microgame {
+    width: min(1160px, 100%);
+  }
+}
+
+/* 10) Phones and small tablets use the page as one easy scroll column. */
+@media (max-width: 760px) {
+  html,
+  body,
+  body.game-active {
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto !important;
+  }
+
+  .app-shell,
+  .v175-scroll-shell {
+    width: calc(100% - 12px) !important;
+    max-width: none !important;
+    padding-block: 6px max(22px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .screen,
+  .panel,
+  .round-panel,
+  .microgame-zone,
+  .v164-responsive-microgame {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .panel,
+  .round-panel {
+    border-radius: clamp(16px, 5vw, 24px);
+  }
+
+  .microgame-zone,
+  .v164-responsive-microgame {
+    width: 100%;
+    touch-action: pan-y pinch-zoom !important;
+  }
+
+  .grid2,
+  .grid3,
+  .card-grid,
+  .choice-grid,
+  .leaderboard-columns,
+  .result-grid,
+  .recap-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .v14-stage,
+  .fall-field,
+  .maze-field,
+  .platform-stage,
+  .spotlight-field,
+  .popup-field,
+  .rush-field,
+  .playfield,
+  .drag-trash-stage,
+  .vault-stage,
+  .gift-stage {
+    min-height: clamp(260px, 54dvh, 500px);
+    max-height: none;
+  }
+}
+
+/* 11) Short landscape screens scroll instead of compressing the game. */
+@media (orientation: landscape) and (max-height: 700px) {
+  html,
+  body,
+  body.game-active,
+  .screen,
+  .app-shell {
+    height: auto !important;
+    min-height: 100dvh;
+    overflow-y: auto !important;
+  }
+
+  .app-shell {
+    align-content: start !important;
+  }
+
+  .round-panel,
+  .panel {
+    margin-block: 6px;
+  }
+
+  .microgame-zone,
+  .v164-responsive-microgame {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
