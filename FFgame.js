@@ -1,5 +1,5 @@
 /* ============================================================
-   Scam Sprint Ultimate Arcade V16.6 — FFgame.js
+   Scam Sprint Ultimate Arcade V16.16 — FFgame.js
    Purpose: complete preserved game engine plus additive mobile, profile, save, demo,
    leaderboard, ready-gate, accessibility, and minigame reliability upgrades.
    ============================================================ */
@@ -12697,6 +12697,330 @@
 
   v175InstallScrollRuntime();
   v175NormalizeRenderedLayout();
+
+
+  /* ============================================================
+     28) V16.16 SENIOR KIOSK + PASSWORDLESS FIVE-GAME REWARD LOOP
+     ------------------------------------------------------------
+     ADDITIVE UPDATE — the Full Game, Online Play, accounts, all prior
+     layouts, and all 657 games remain above unchanged.
+
+     KIOSK CHANGES ONLY:
+     - One large Start button; no password, email, or account step.
+     - Optional nickname instead of a required profile.
+     - Five curated, readable scam-safety games with no countdown.
+     - A simplified HUD and no powerup-selection clutter.
+     - A shield-based reward loop, local kiosk scores, and a scannable
+       take-home QR after a strong score or five-answer streak.
+     - URL deployment helpers: ?kiosk=1 and ?kiosk=1&locked=1.
+     ============================================================ */
+
+  if (DATA?.site) DATA.site.version = "16.16";
+
+  const V176_KIOSK_SHARE_URL = String(window.FF_KIOSK_CONFIG?.shareUrl || "https://fraud-front.com/scam-sprint");
+  const V176_KIOSK_QR_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARgAAAEYAQAAAACv9dQhAAABoklEQVR4nO2ZwW4EIQxDn6v5/192D0mAVpX2lk21zEo7wPhgWQQnQebl8/UacjEXczF/PA+gGFpYAEbeq/M4d+uDAQROgbC8V8dx7sdIAhCli7VXh3LuwTzH2FL+vY/PNMypjzDCMuK0/Wmc+/UJNWLryLJXoHXzmYZ5YFmVLCtOHu/VeZy79al94hQmj+i38JmGwTb2ngGOn0Mmexrnbowj9TEg1dYxmSvO5NyKsQynryskyyAbybkTsxw9A00WKNeHcm7EiAwnI0cCFFO/h88kTDl5SrFSRPnWpwtjG0m5hbCQcRjZO/gMwjxU0hNnjvK0ppodzXymYUKLo/VzfspscRrn9vN5B5MAIUUln7X8RM6tGKWZE2lQxJVk2Z/u79VJja4Gae/xRTc/LIyVWVA1VXMbfXx8Vf1ee4Z6m9Ulm8a53d9jeHiXtbWax7m9P7bvL2TWHUbNx3Fu16cKjLMqzTaibn2xnzx1pGiO+dYXv+53oqqIlDodvpnPTIxdfedsbWDklGoo5x7Mj/sLlqfHdapvf1V+jZnG+WIu5r9gvgFOg7IxYmDGEwAAAABJRU5ErkJggg==";
+  const V176_KIOSK_RESET_SECONDS = Math.max(20, Number(window.FF_KIOSK_CONFIG?.resultResetSeconds || 60));
+  const V176_QUERY = new URLSearchParams(window.location.search);
+
+  function v176QueryRequestsKiosk() {
+    const value = String(V176_QUERY.get("kiosk") || V176_QUERY.get("demo") || V176_QUERY.get("mode") || "").toLowerCase();
+    return ["1", "true", "yes", "kiosk", "locked"].includes(value);
+  }
+
+  function v176KioskLocked() {
+    const kioskValue = String(V176_QUERY.get("kiosk") || "").toLowerCase();
+    const lockedValue = String(V176_QUERY.get("locked") || V176_QUERY.get("lock") || "").toLowerCase();
+    return kioskValue === "locked" || ["1", "true", "yes"].includes(lockedValue) || window.FF_KIOSK_CONFIG?.locked === true;
+  }
+
+  if (v176QueryRequestsKiosk()) {
+    localStorage.setItem(V174_EXPERIENCE_KEY, "kiosk");
+  }
+
+  function v176ApplyKioskBody() {
+    const kiosk = v174IsKioskMode();
+    document.body.classList.toggle("v176-senior-kiosk", kiosk);
+    document.body.classList.toggle("v176-locked-kiosk", kiosk && v176KioskLocked());
+  }
+
+  const v175RenderCoreV176 = render;
+  render = function v176Override_render(html) {
+    v175RenderCoreV176(html);
+    v176ApplyKioskBody();
+  };
+
+  /* Locked kiosk deployments hide the mode selector so a visitor cannot
+     accidentally enter account or password screens on a public machine. */
+  const v175TopbarCoreV176 = topbar;
+  topbar = function v176Override_topbar() {
+    if (!(v174IsKioskMode() && v176KioskLocked())) return v175TopbarCoreV176();
+    return `<div class="topbar v174-topbar v176-locked-topbar">
+      <div class="topbar-left"><div class="logo-mark">FF</div><div class="logo-copy"><strong>${esc(DATA.site.gameName)}</strong><small>Five-Game Safety Demo</small></div></div>
+      <div class="v174-topbar-center"><span class="v176-kiosk-mode-pill">Demo Kiosk</span></div>
+      <div class="topbar-actions">
+        <button class="icon-btn accessibility-btn" id="accessibilityBtn" type="button" aria-pressed="false" title="Toggle Easy View">A+</button>
+        <button class="icon-btn ${state.soundOn ? "sound-on" : "sound-off"}" id="soundBtn" type="button" title="Toggle sound">${state.soundOn ? "🔊" : "🔇"}</button>
+        <button class="icon-btn" id="homeBtn" type="button" title="Demo home">⌂</button>
+      </div>
+    </div>`;
+  };
+
+  const v175WireTopbarCoreV176 = wireTopbar;
+  wireTopbar = function v176Override_wireTopbar() {
+    if (!(v174IsKioskMode() && v176KioskLocked())) return v175WireTopbarCoreV176();
+    on($("#homeBtn"), "click", v174ShowKioskHome);
+    on($("#soundBtn"), "click", toggleSound);
+    on($("#accessibilityBtn"), "click", v164ToggleEasyView);
+    updateSoundButton();
+    v164ApplyAccessibility();
+    v174ApplyExperienceMode();
+    v176ApplyKioskBody();
+  };
+
+  function v176GuestName() {
+    const first = ["Alert", "Bright", "Careful", "Quick", "Safe", "Sharp", "Smart", "Wise"];
+    const second = ["Defender", "Detective", "Guardian", "Scout", "Shield", "Spotter"];
+    return `${first[Math.floor(Math.random() * first.length)]} ${second[Math.floor(Math.random() * second.length)]} ${Math.floor(10 + Math.random() * 90)}`;
+  }
+
+  function v176SuggestedKioskName() {
+    if (!state.v176SuggestedKioskName) state.v176SuggestedKioskName = v176GuestName();
+    return state.v176SuggestedKioskName;
+  }
+
+  function v176ResolveKioskName(value) {
+    const clean = v174CleanKioskName(value);
+    const resolved = clean.length >= 2 ? clean : v176SuggestedKioskName();
+    state.v176SuggestedKioskName = resolved;
+    return resolved;
+  }
+
+  function v176ResetForNextKioskPlayer() {
+    clearLoops();
+    state.kioskDemo = false;
+    state.kioskUsername = "";
+    state.v176SuggestedKioskName = "";
+    localStorage.removeItem(V174_KIOSK_NAME_KEY);
+    v174ShowKioskHome();
+  }
+
+  /* Curated rotation: five readable categories, no platforming or reflex
+     requirement. The other 652 games remain available in Full Game. */
+  function v176SelectSeniorKioskRounds() {
+    const pool = ROUNDS.filter((round) => !["bossRush", "legacyBossRush"].includes(round.type) && String(round.difficulty || "").toLowerCase() !== "hard");
+    const buckets = [
+      ["safeChoice", "familyCallOrder", "chatRefuse", "emailBlock", "smsBlock", "smsReport"],
+      ["dangerWebsite", "siteInspector", "domainDuel", "qrScan", "privacyExit", "freeSiteExit"],
+      ["gameChatReport", "lobbyMute", "romanceSwipe", "marketplaceMatch", "romanceEvidenceChat"],
+      ["attachmentFlash", "attachmentMemory", "fileDelete", "downloadDelete", "taskbarFileDelete"],
+      ["deepfakeCall", "deepfakeSpot", "permissionsToggle", "permissionToggle", "mfaShield", "categoryMatch", "safeWordChallenge"]
+    ];
+    const chosen = [];
+    const used = new Set();
+    buckets.forEach((types) => {
+      const round = sample(pool.filter((item) => types.includes(item.type) && !used.has(item.id)), 1)[0];
+      if (round) { chosen.push(round); used.add(round.id); }
+    });
+    const fallback = v174SelectDemoRounds().filter((item) => !used.has(item.id));
+    fallback.forEach((round) => { if (chosen.length < 5) { chosen.push(round); used.add(round.id); } });
+    return shuffle(chosen).slice(0, 5);
+  }
+
+  function v176LockedFeatureCards() {
+    return [["🎮", "Arcade Run"], ["♾️", "Endless Mode"], ["🌎", "Online Play"], ["👥", "Accounts"], ["🗂️", "Game Library"], ["🏆", "Full Leaderboards"]]
+      .map(([icon, label]) => `<button type="button" class="v174-locked-card" data-v174-locked="${esc(label)}"><span>${icon}</span><strong>${esc(label)}</strong><small>🔒 Full Game only</small></button>`).join("");
+  }
+
+  v174ShowKioskHome = function v176ShowKioskHome() {
+    clearLoops();
+    v174InstallResponsiveRuntime();
+    document.body.classList.remove("game-active");
+    v176ApplyKioskBody();
+    const suggested = v176SuggestedKioskName();
+
+    render(`<section class="screen v174-kiosk-screen v176-kiosk-screen">${topbar()}<div class="panel v174-kiosk-panel v176-kiosk-panel">
+      <header class="v176-kiosk-hero">
+        <span class="eyebrow">FraudFront · Five-Game Demo</span>
+        <h1>Tap once. Learn five scam-safety skills.</h1>
+        <p>No password. No email. No account. There is no countdown—read each question at your own pace.</p>
+        <div class="v176-kiosk-facts"><span>5 quick games</span><span>Large controls</span><span>No timer pressure</span></div>
+      </header>
+
+      <section class="v176-kiosk-launch-card">
+        <div class="v176-kiosk-start-icon" aria-hidden="true">🛡️</div>
+        <div><h2>Ready to practice?</h2><p>You will see one clear safety choice at a time.</p></div>
+        <button class="btn btn-primary v176-kiosk-start-button" id="v176StartKioskBtn" type="button">▶ Start the 5-Game Demo</button>
+        <details class="v176-kiosk-optional">
+          <summary>Add a nickname <span>optional</span></summary>
+          <label for="v176KioskNameInput">Nickname shown only on this kiosk</label>
+          <input id="v176KioskNameInput" maxlength="18" autocomplete="off" placeholder="${esc(suggested)}">
+        </details>
+      </section>
+
+      <div class="v176-kiosk-how">
+        <article><span>1</span><strong>Read</strong><p>Take as long as you need.</p></article>
+        <article><span>2</span><strong>Choose</strong><p>Tap the safest action.</p></article>
+        <article><span>3</span><strong>Learn</strong><p>See why the choice protects you.</p></article>
+      </div>
+
+      <details class="v176-kiosk-collapsible">
+        <summary>🏆 View this kiosk's top scores</summary>
+        <section class="v174-kiosk-leaderboard-card">${v174KioskLeaderboardHtml()}</section>
+      </details>
+
+      ${v176KioskLocked() ? "" : `<details class="v176-kiosk-collapsible"><summary>🔒 Explore Full Game features later</summary><section class="v174-locked-features">${v176LockedFeatureCards()}</section></details>`}
+    </div></section>`);
+
+    wireTopbar();
+    on($("#v176StartKioskBtn"), "click", () => {
+      const input = $("#v176KioskNameInput");
+      v174StartKioskDemo(v176ResolveKioskName(input?.value || ""));
+    });
+    $$('[data-v174-locked]').forEach((button) => on(button, "click", () => v174LockedFeature(button.dataset.v174Locked)));
+  };
+
+  v174StartKioskDemo = function v176StartKioskDemo(username = "") {
+    clearLoops();
+    ensureAudio();
+    v16NewRunState("demo");
+    state.kioskDemo = true;
+    state.kioskUsername = v176ResolveKioskName(username);
+    state.playerMode = "senior";
+    state.difficulty = "easy";
+    state.deviceMode = localStorage.getItem("ffV16MotionEnabled") === "yes" && matchMedia("(pointer: coarse)").matches ? "motion" : "auto";
+    state.powerups = { iris: 0, freeze: 0, shield: 0 };
+    state.selected = v176SelectSeniorKioskRounds();
+    state.v176KioskStartedAt = Date.now();
+    renderRound();
+  };
+
+  const v175HudCoreV176 = hud;
+  hud = function v176Override_hud() {
+    if (!(state.kioskDemo && v174IsKioskMode())) return v175HudCoreV176();
+    const roundNumber = Math.min(5, Number(state.idx || 0) + 1);
+    const progress = clamp((roundNumber / 5) * 100, 0, 100);
+    const shields = Array.from({ length: 5 }, (_, index) => `<span class="${index < Number(state.correct || 0) ? "earned" : ""}">🛡️</span>`).join("");
+    return `<div class="hud v176-kiosk-hud">
+      <div class="v176-kiosk-round"><span>Game <strong id="v176KioskRound">${roundNumber}</strong> of 5</span><div class="v176-kiosk-progress"><i id="v176KioskProgress" style="width:${progress}%"></i></div></div>
+      <div class="v176-kiosk-shields" id="v176KioskShields" aria-label="${Number(state.correct || 0)} safety shields earned">${shields}</div>
+      <div class="v176-kiosk-score">Score <strong id="v176KioskScore">${Number(state.score || 0).toLocaleString()}</strong></div>
+      <div class="v176-take-time">Take your time · no countdown</div>
+    </div>`;
+  };
+
+  const v175UpdateBarsCoreV176 = updateBars;
+  updateBars = function v176Override_updateBars() {
+    v175UpdateBarsCoreV176();
+    if (!(state.kioskDemo && v174IsKioskMode())) return;
+    const score = $("#v176KioskScore");
+    if (score) score.textContent = Number(state.score || 0).toLocaleString();
+    const shieldHost = $("#v176KioskShields");
+    if (shieldHost) {
+      shieldHost.innerHTML = Array.from({ length: 5 }, (_, index) => `<span class="${index < Number(state.correct || 0) ? "earned" : ""}">🛡️</span>`).join("");
+      shieldHost.setAttribute("aria-label", `${Number(state.correct || 0)} safety shields earned`);
+    }
+  };
+
+  const v175PowerupsCoreV176 = powerups;
+  powerups = function v176Override_powerups() {
+    if (!(state.kioskDemo && v174IsKioskMode())) return v175PowerupsCoreV176();
+    return `<section class="v176-kiosk-help-card"><span>💡</span><div><strong>One safe choice at a time</strong><p>Read the whole message, then tap the action that protects you.</p></div></section>`;
+  };
+
+  const v175SecondsForCoreV176 = secondsFor;
+  secondsFor = function v176Override_secondsFor(round) {
+    if (state.kioskDemo && v174IsKioskMode()) return 180;
+    return v175SecondsForCoreV176(round);
+  };
+
+  const v175PassRoundCoreV176 = passRound;
+  passRound = function v176Override_passRound(headline) {
+    const before = Number(state.correct || 0);
+    v175PassRoundCoreV176(headline);
+    if (!(state.kioskDemo && v174IsKioskMode()) || Number(state.correct || 0) <= before) return;
+    const line = $("#feedbackHost .feedback .small");
+    if (line) line.textContent = `${line.textContent} · Safety Shield earned`;
+    $("#feedbackHost .feedback")?.classList.add("v176-shield-earned-feedback");
+  };
+
+  function v176RewardForResult() {
+    const correct = Number(state.correct || 0);
+    if (correct >= 5) return { icon: "🏆", title: "FraudFront Defender", copy: "Perfect five-game safety streak!" };
+    if (correct >= 4) return { icon: "🛡️", title: "Scam Shield Star", copy: "You spotted nearly every risky move." };
+    if (correct >= 3) return { icon: "🔎", title: "Alert Scam Spotter", copy: "You built strong verification habits." };
+    return { icon: "🌱", title: "Safety Skills Explorer", copy: "Every practice round builds safer habits." };
+  }
+
+  function v176RewardUnlocked() {
+    return Number(state.correct || 0) >= 4 || Number(state.bestStreak || 0) >= 5 || Number(state.score || 0) >= 450;
+  }
+
+  function v176LessonsHtml() {
+    const lessons = [...new Set((state.lessons || []).filter(Boolean))].slice(0, 3);
+    if (!lessons.length) return "";
+    return `<section class="v176-learned-card"><strong>What you practiced</strong><ul>${lessons.map((lesson) => `<li>${esc(lesson)}</li>`).join("")}</ul></section>`;
+  }
+
+  function v176ShareResult(username, reward) {
+    const text = `${username} earned the ${reward.title} badge in Scam Sprint. Practice five quick scam-safety challenges with FraudFront.`;
+    if (navigator.share) {
+      return navigator.share({ title: "Scam Sprint", text, url: V176_KIOSK_SHARE_URL }).catch(() => {});
+    }
+    return navigator.clipboard?.writeText(`${text} ${V176_KIOSK_SHARE_URL}`)
+      .then(() => toast("Share message copied."))
+      .catch(() => toast("Scan the QR code to open the game at home."));
+  }
+
+  const v175ShowResultsCoreV176 = showResults;
+  showResults = function v176Override_showResults(lost) {
+    if (!(state.kioskDemo && v174IsKioskMode())) return v175ShowResultsCoreV176(lost);
+
+    clearLoops();
+    document.body.classList.remove("game-active");
+    const result = v174RecordKioskResult();
+    const username = result.username;
+    const reward = v176RewardForResult();
+    const unlocked = v176RewardUnlocked();
+    const shields = Array.from({ length: 5 }, (_, index) => `<span class="${index < Number(state.correct || 0) ? "earned" : ""}">🛡️</span>`).join("");
+
+    render(`<section class="screen v174-kiosk-results v176-kiosk-results">${topbar()}<div class="panel v174-kiosk-results-panel v176-kiosk-results-panel">
+      <section class="v176-reward-hero ${unlocked ? "unlocked" : ""}">
+        <div class="v176-reward-icon">${reward.icon}</div>
+        <div><span class="eyebrow">Five-game demo complete</span><h1>${esc(reward.title)}</h1><p>${esc(reward.copy)}</p></div>
+      </section>
+
+      <div class="v176-result-shields" aria-label="${Number(state.correct || 0)} of 5 safety shields">${shields}</div>
+      <div class="result-grid v176-result-grid"><div><strong>${Number(state.score || 0).toLocaleString()}</strong><span>score</span></div><div><strong>${state.correct}/5</strong><span>safe choices</span></div><div><strong>${state.bestStreak}</strong><span>best streak</span></div><div><strong>${Number(result.score || 0).toLocaleString()}</strong><span>personal best</span></div></div>
+
+      ${v176LessonsHtml()}
+
+      ${unlocked ? `<section class="v176-qr-card">
+        <div><span class="eyebrow">Take the skill home</span><h2>Scan to play or share Scam Sprint</h2><p>Your strong score unlocked this take-home reward.</p><button class="btn btn-secondary" id="v176ShareBtn" type="button">Share My Badge</button></div>
+        <a href="${esc(V176_KIOSK_SHARE_URL)}" target="_blank" rel="noopener" aria-label="Open Scam Sprint"><img src="${V176_KIOSK_QR_DATA}" alt="QR code linking to Scam Sprint"></a>
+      </section>` : `<section class="v176-qr-card locked"><div class="v176-qr-lock">🔒</div><div><h2>Take-home QR almost unlocked</h2><p>Earn four Safety Shields or reach a five-answer streak to unlock the share reward.</p></div></section>`}
+
+      <details class="v176-kiosk-collapsible" open><summary>🏆 This kiosk's top scores</summary><section class="v174-kiosk-leaderboard-card">${v174KioskLeaderboardHtml()}</section></details>
+
+      <div class="button-row v176-result-actions"><button class="btn btn-primary" id="v176KioskAgainBtn">Play Again</button><button class="btn btn-secondary" id="v176NewPlayerBtn">New Player</button></div>
+      <p class="v176-kiosk-reset">This screen resets for the next player in <strong id="v176ResetSeconds">${V176_KIOSK_RESET_SECONDS}</strong> seconds.</p>
+    </div></section>`);
+
+    wireTopbar();
+    on($("#v176KioskAgainBtn"), "click", () => v174StartKioskDemo(username));
+    on($("#v176NewPlayerBtn"), "click", v176ResetForNextKioskPlayer);
+    on($("#v176ShareBtn"), "click", () => v176ShareResult(username, reward));
+
+    let remaining = V176_KIOSK_RESET_SECONDS;
+    const resetTimer = setInterval(() => {
+      remaining -= 1;
+      const node = $("#v176ResetSeconds");
+      if (node) node.textContent = String(Math.max(0, remaining));
+      if (remaining <= 0) v176ResetForNextKioskPlayer();
+    }, 1000);
+    addCleanup(() => clearInterval(resetTimer));
+  };
+
+  v176ApplyKioskBody();
 
 
   /* ============================================================
