@@ -1,5 +1,5 @@
 /* ============================================================
-   Scam Sprint Ultimate Arcade V16.16 — FFcss.css
+   FraudFront Scam Sprint V16.17 — FFcss.css
    Purpose: preserved visual system plus additive phone portrait/landscape, touch,
    aligned HUD, profile, leaderboard, demo, and action-game layout upgrades.
    ============================================================ */
@@ -5848,4 +5848,252 @@ table,
   .v176-kiosk-score { order: 2; }
   .v176-take-time { order: 4; }
   .v176-reward-icon { width: 78px; border-radius: 22px; font-size: 2.4rem; }
+}
+
+
+/* ============================================================
+   V16.17 ADDITIVE STYLES — FRAUDFRONT BRAND + KIOSK PLAYABILITY
+   Full Game mechanics and all 657 rounds remain preserved.
+   ============================================================ */
+
+.v177-branded-topbar {
+  min-width: 0;
+}
+
+.v177-topbar-left {
+  min-width: 0;
+  gap: 12px;
+}
+
+.v177-fraudfront-brand {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-decoration: none;
+}
+
+.v177-fraudfront-brand:hover {
+  transform: none;
+  filter: brightness(1.08);
+}
+
+.v177-brand-wordmark {
+  display: block;
+  width: clamp(154px, 18vw, 226px);
+  height: auto;
+  max-height: 58px;
+  object-fit: contain;
+}
+
+.v177-brand-mark {
+  display: none;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+
+.v177-product-name {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 999px;
+  color: #eef5ff;
+  background: rgba(255,255,255,.055);
+  font-size: .82rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+/* Every kiosk round uses a centered reading width rather than stretching to
+   the monitor edge. Inner mock devices shrink before overflowing. */
+.v176-senior-kiosk .round-panel {
+  width: min(980px, calc(100% - 20px));
+  max-width: 980px;
+  padding: clamp(18px, 3vw, 32px);
+}
+
+.v176-senior-kiosk .round-panel > *,
+.v176-senior-kiosk .round-panel [class*="grid"],
+.v176-senior-kiosk .round-panel [class*="layout"],
+.v176-senior-kiosk .round-panel [class*="stage"],
+.v176-senior-kiosk .round-panel [class*="frame"],
+.v176-senior-kiosk .round-panel [class*="window"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.v176-senior-kiosk .phone-frame,
+.v176-senior-kiosk .mini-phone,
+.v176-senior-kiosk .browser-window,
+.v176-senior-kiosk .scenario-box,
+.v176-senior-kiosk .message-card,
+.v176-senior-kiosk .lobby-ui,
+.v176-senior-kiosk .live-lobby-ui {
+  width: min(100%, 620px);
+  margin-inline: auto;
+}
+
+.v176-senior-kiosk .phone-screen {
+  min-height: 0;
+}
+
+.v176-senior-kiosk .phone-chat,
+.v176-senior-kiosk .phone-menu,
+.v176-senior-kiosk .email-menu {
+  overflow: visible;
+}
+
+.v176-senior-kiosk .grid2,
+.v176-senior-kiosk .grid3,
+.v176-senior-kiosk .grid4,
+.v176-senior-kiosk .choice-grid,
+.v176-senior-kiosk .options-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+}
+
+.v176-senior-kiosk .choice-btn,
+.v176-senior-kiosk .action-btn,
+.v176-senior-kiosk .domain-card,
+.v176-senior-kiosk .qr-card,
+.v176-senior-kiosk .permission-card,
+.v176-senior-kiosk [data-mfa] {
+  min-height: 68px;
+  padding: 15px 17px;
+  font-size: clamp(1rem, 1.8vw, 1.16rem);
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.v176-senior-kiosk .round-panel h1,
+.v176-senior-kiosk .round-panel h2 {
+  max-width: 24ch;
+  overflow-wrap: anywhere;
+}
+
+.v176-senior-kiosk .round-panel p,
+.v176-senior-kiosk .scenario-text,
+.v176-senior-kiosk .bubble,
+.v176-senior-kiosk .command-banner small {
+  font-size: clamp(1rem, 1.75vw, 1.18rem);
+  line-height: 1.62;
+}
+
+/* 1024x600, 800x600, 800x480, and similar older kiosk resolutions. */
+@media (max-width: 1100px), (max-height: 680px) {
+  .v177-branded-topbar {
+    gap: 9px;
+    padding: 8px 10px;
+  }
+
+  .v177-brand-wordmark {
+    width: clamp(145px, 22vw, 205px);
+  }
+
+  .v177-product-name {
+    display: none;
+  }
+
+  .v176-senior-kiosk .round-panel {
+    padding: 17px;
+  }
+
+  .v176-senior-kiosk .round-panel h1 {
+    font-size: clamp(1.65rem, 4.6vw, 2.7rem);
+    line-height: 1.04;
+  }
+
+  .v176-senior-kiosk .command-banner {
+    padding: 14px 16px;
+  }
+}
+
+@media (max-width: 720px) {
+  .v177-brand-wordmark {
+    display: none;
+  }
+
+  .v177-brand-mark {
+    display: block;
+  }
+
+  .v177-product-name {
+    display: inline-flex;
+    font-size: .75rem;
+  }
+
+  .v177-branded-topbar .v174-topbar-center {
+    order: 3;
+    width: 100%;
+  }
+
+  .v176-senior-kiosk .round-panel {
+    width: calc(100% - 10px);
+    padding: 15px 12px 24px;
+  }
+
+  .v176-senior-kiosk .grid2,
+  .v176-senior-kiosk .grid3,
+  .v176-senior-kiosk .grid4,
+  .v176-senior-kiosk .choice-grid,
+  .v176-senior-kiosk .options-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .v176-senior-kiosk .v176-kiosk-hud {
+    position: relative;
+    grid-template-columns: minmax(180px,1fr) auto;
+    gap: 7px 12px;
+    padding: 9px 12px;
+  }
+
+  .v176-senior-kiosk .v176-kiosk-shields,
+  .v176-senior-kiosk .v176-take-time {
+    display: none;
+  }
+
+  .v176-senior-kiosk .round-panel {
+    padding-block: 13px 22px;
+  }
+
+  .v176-senior-kiosk .phone-frame {
+    padding: 9px;
+    border-radius: 20px;
+  }
+
+  .v176-senior-kiosk .phone-top,
+  .v176-senior-kiosk .phone-chat {
+    padding: 11px;
+  }
+}
+
+/* Very narrow 480px deployments retain readable one-column actions. */
+@media (max-width: 500px) {
+  .v177-brand-mark {
+    width: 46px;
+    height: 46px;
+  }
+
+  .v177-product-name {
+    min-height: 30px;
+    padding-inline: 9px;
+  }
+
+  .v176-senior-kiosk .choice-btn,
+  .v176-senior-kiosk .action-btn,
+  .v176-senior-kiosk .domain-card,
+  .v176-senior-kiosk .qr-card,
+  .v176-senior-kiosk .permission-card,
+  .v176-senior-kiosk [data-mfa] {
+    min-height: 64px;
+    font-size: 1rem;
+  }
 }
