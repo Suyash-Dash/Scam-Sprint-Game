@@ -1,16 +1,16 @@
 /* ============================================================
-   Scam Sprint Ultimate Arcade V16 — FFlevels.js
+   FraudFront Scam Sprint V16.17 — FFlevels.js
    Purpose: all 657 V15 rounds preserved, with V16 metadata compatibility; no rounds removed.
    ============================================================ */
 
 window.FF_SCAM_ARCADE_DATA = {
   "site": {
-    "gameName": "Scam Sprint: FraudFront Ultimate Arcade by Suyash Dash",
-    "tagline": "By Suyash Dash",
+    "gameName": "Scam Sprint",
+    "tagline": "A FraudFront scam-safety game",
     "totalPlayableRounds": 657,
     "totalMechanics": 95,
     "arcadeRoundsBeforeBoss": 18,
-    "version": "16.0"
+    "version": "16.17"
   },
   "rounds": [
     {
