@@ -1,5 +1,5 @@
 /* ============================================================
-   Scam Sprint Ultimate Arcade V16.16 — FFgame.js
+   FraudFront Scam Sprint V16.17 — FFgame.js
    Purpose: complete preserved game engine plus additive mobile, profile, save, demo,
    leaderboard, ready-gate, accessibility, and minigame reliability upgrades.
    ============================================================ */
@@ -12995,9 +12995,9 @@
       ${v176LessonsHtml()}
 
       ${unlocked ? `<section class="v176-qr-card">
-        <div><span class="eyebrow">Take the skill home</span><h2>Scan to play or share Scam Sprint</h2><p>Your strong score unlocked this take-home reward.</p><button class="btn btn-secondary" id="v176ShareBtn" type="button">Share My Badge</button></div>
+        <div><span class="eyebrow">Take the skill home</span><h2>Scan to play or share Scam Sprint</h2><p>Finishing all five safety games unlocked this take-home reward.</p><button class="btn btn-secondary" id="v176ShareBtn" type="button">Share My Badge</button></div>
         <a href="${esc(V176_KIOSK_SHARE_URL)}" target="_blank" rel="noopener" aria-label="Open Scam Sprint"><img src="${V176_KIOSK_QR_DATA}" alt="QR code linking to Scam Sprint"></a>
-      </section>` : `<section class="v176-qr-card locked"><div class="v176-qr-lock">🔒</div><div><h2>Take-home QR almost unlocked</h2><p>Earn four Safety Shields or reach a five-answer streak to unlock the share reward.</p></div></section>`}
+      </section>` : `<section class="v176-qr-card locked"><div class="v176-qr-lock">🔒</div><div><h2>Take-home QR almost unlocked</h2><p>Finish all five safety games to unlock the take-home QR reward.</p></div></section>`}
 
       <details class="v176-kiosk-collapsible" open><summary>🏆 This kiosk's top scores</summary><section class="v174-kiosk-leaderboard-card">${v174KioskLeaderboardHtml()}</section></details>
 
@@ -13021,6 +13021,218 @@
   };
 
   v176ApplyKioskBody();
+
+
+  /* ============================================================
+     29) V16.17 FRAUDFRONT BRANDING + SENIOR PLAYABILITY GUARD
+     ------------------------------------------------------------
+     Additive only:
+     - Removes personal player-facing branding and uses the supplied
+       FraudFront logo in every top bar.
+     - Makes ?kiosk=1 a demo-only deployment by default. Staff can use
+       ?kiosk=1&preview=1 to keep the Full Game switch visible.
+     - Selects only calm, static, tap-based rounds for the kiosk.
+     - Disables the kiosk countdown completely rather than merely hiding it.
+     - Adds an offline Senior Playability Guard/report for all 657 rounds.
+     - Keeps the Full Game and the complete round bank unchanged.
+     ============================================================ */
+
+  const V177_FRAUDFRONT_WORDMARK = "data:image/png;base64,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";
+  const V177_FRAUDFRONT_MARK = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEgAAABFCAYAAADpc6CZAAAKMElEQVR4nO1ba4wT1xU+5854/PZ6vet92OyCF9ryXhoKROIVoEkbCqFK0/cDilQq0qiqUlpoqUKTtCIJ+RHRbktVmlBBmrZRJEoE4RGRF2mXR6GEDaFIsJTswmZZdtdevx9z+8Mee2Y84xnveJeq8pFG9p1z78ycb7773XNmbGz0BaZC1VSN3OkL+F+3KkAaVgVIw6oAaVgVIA2rAqRh7Hif0Gxpddtd8xZYHDNmmm2BNpZraiasw0kJwwAi8kApICIFAIoA+U8EAEDkIZ3mM5FwKtHXl4p0X0mOdF1IDJ3qTEevD4/F9eJ45UEe75oV7vqVq6yOWe1C4ICIQvBFgIj9UACpyJ9rJ0Lv/St28+Crsd79r1fyusccoNr6Vfc0NK9dz5p9fjVmKAWsyKBS/tz4dLy3J3ptzx/ivQeOV+L6xwwgE9dk87f+cLPTvXCxUiD5qaTCDIkfioEsmoqifoCIiVvvvBW5tGM7H+uLGoljTETa6Zo/bcrU3X90uhcu5oFSCrmLh2wAPFAqBFXkB5Ff9l3iF76jyC8aw3oXLXHevedFU/2C6UZiqThA7tp75gY+/lwHy3nq8tNCNEUAEYFkPxX9OR8gIiUq47HEeNGGZk+dbd6vdpmals8bbTwVBcjpmj+tpe2Xz/BAqRozxNt4+S1ztz/LekfHpIoBZOKabC2BbU/K73D+LufYoOpXYYiqn+gcT7JRmu/6+S/Q1mS7YwD5Wx/9MWOq9ahqjvw7QEU1R+IXfIRSmusP1lqPuX3TlnLjqghAnvrVy5zuRUvGVHOItuZI2ESKN8a/aAkbWL1s3AHyNn/r26PWDKpTU2gZxyeUZpkmbDxPkVIeeZ6Zvnb9uALk8a5ZYbL4J4xaU8jYaE5+YwAoU9iPLp+fmbJmxbgBVFO/ctWdyHOK+so0hxJKJW3RJ5l8/+f0xmeoWDVbWt02WW0FCACY9QsFZpEfsn0U/QDAmRAn+hhmoo9h/F6GuRXk+UvX0+l/92Qywtj88YVsWmCMRH8QASmVMAoBSOOsdnS1umlIu8A1BJDNNW+BlB1StgDkLl6n38wBfPdBu/2rn7FazSYsYveH/Zn07w9Fo6+ciMczvGg8ya1USGkWKClrIPcdRPvQN3ceDV0/phWjoSlmc8yYWak8p95DyN4namvXrbLZlcABAGhpYNgn1jldf/lZba3XzTCKmkNk+5jcJm83zpipJ0ZDAHG2QFsl8hwTB7Bri9s9ZQJr0nPemZNY00s/qalx2EXaQrLsEdq8hEXFG3gmBfScyxBAJnOzrxJ5zqZvOBxt/mJwnj8Ui657Ojj82J7wiNzX4mXYx77mcCjlOxK2yFYzoY2upmY9MRpbxRi7w2ie09JEyEPLrfkSIJGkfO9AJk0pwOHT8fjJS8nka6fj8XiS8kNhPjM4wmeEvmvmW6xtzYSI8xzl/KeQF+X9ZpuussOQSCNhWUEEAQrLcHZlyT6vka9acv/KhVar+JjPvxaL/eZv0Wijh5AbgzwPiDgSB/j0lqGh4SilS9tNpo6NrprsYQA+f7fF8uzBcLgoe0bIrmIkt4qheD8AEEZX7IYYVIk8Z/IEhhGOx/MAfz4ei2Uopb23M5lpE1l25yNO54pPclx/iOcTPM8fO59I9AcLLFo0lePkeQ6Vs0W8ifKjcQHIyPMcJACTJ7D5O0kIwL6tbrfg37elpubeu8yWjkdcNQEfwwAB2LnB5WqoIXlQW+qy+1VXK7W2zsgNTTE5c8rNgzY8YLcHmqVUT/NShuUtx4AMSC27euYYIWOSPP+R+AnlEbTNMING+zxn1sc47nsP2h3yY37zqWBQ6PP1Z4LBo2eTiYd3hYJX+jMZIAA/2BMM3goVpth/BjIZTaYo5Uc6IzcGEIyutuLMiE9vdDpR4RZ+aZnZDAjgqyek68NU6uHfBYNHzycS3lpEE4d47xyO87oKU6zrRiqlluvINSfX5imhvF4NMvbiUGdtJdRnwj6bFfHAu4kEICS+uNRi8boLAX/nfpvtC4us1mYPYR56amjwvevptN2G+MbjdXWxpDQoSgF2vxOJSBiiuJoVPiU1mw4zBBAP2Yc0eUBKaQ6FfGF5O8TzHfsjEYoAS9s5TgyQlUPir8te/Wfnms0WK2KgkRCLCYnFJI1qb2ck3D2YSgkZtJLWgEhzQN5vrAHSk+cIPoFBhQo861eaZoJtuM9m33Cfza7kO9mdTDx+MBTK601RnqOjrcMMr2KSF3ggZQ5AVnPyfiz267uPUtt/Lhb96f7h4SRPqbhyh1xNJjBFkTkiv55zGZximQxgrqoGkGoOyPIkFX84Xh5EP3o5OPzXs9EoJZQCA5qao8QcSgAozcgzBkUztIrxmfBIUe1V5nurI2cTiXLO2XUzmVSsrWQZNC9arYTVTNwXkuGwnvMZYlAq0ddn4mrc5WhO3p/z7X0zHo+kKPXXM0yjG/HLC60li0gU8hwFppRcxYQ+Qnuk/yM9MRoDKNJ9hXV+Ymo5msMjpflUIKcfr3TG45RQOmsSy2oBBGIWKGgOEMpTFc2hojbeutatJ0ZDUyw50nWhku+tdF2NMFYlY1Z7wijfT3o/uKgnRkMMSgyd6sxrjSjP0azNiDRHET55HWuaVHMKY5XynFI1Gbl69oyeGA0BlI5eH06OXDhvqpk9R6/mKL19oDltuDqQTn/lt4O3gWTBFfqJp8zVoXRad56j0saei+/jQE9ozAECAIjdPPgq6549R1VzoFhzCtpQeH9GkdJwEuAfVxOJvGYQyL6hEAAi5eU5VNYWGMSeO3pYb3yGNAgAINa7//VM7EavquYIb0QVNQdR9/ObElW6Hs0R9mOwr485fehtvfEZBggAIHLthd0l8yBpNU0pUXuGLMpjDOY5ahvz5p/2lhNbRQCK9x44nhw48baud+Xyu1sGU5RZKB1LFY5DCQBlAJjLJzvZM0feLSe2igAEABC5tGN7Jjl4W+33OeW+t9LzPEfFX9xGSiEyNGQ68Ovnyo2rYgDxsb5o9MK2rZp5jpw94ruvg0l68xxJXwbA/PKO7TjUHy83rooBBACQGjh5MXpu86Olfp+j+72VbF+R5sjGqW08Usq9+OQ2cvmfl0cTU0UBAgBI9b1xJnbq+xtpKpvPyH+fY2R1KmKfynEEzcHo8LDlha2bmQsnzo82njH7ITnammzm9k1biG/hYtU8RivPIbI8R9lPJf7cfnK58+/cgY6do5lWkjjG+q8IbGD1MnbG2vXg9PnlgWar79KBKgFUClAcvnmTfeulfczpwycqcf3j9mcWZsoDy8nklauwYeZsRUB0MCdXrSsCBD3vd7Hnjh0pJwnUY+MGUP6ErlY3+j81Hxqmz0BPoA1cDY3U4nAAQxgZo5SZQ9NpTEUiNPRRHw5c68aeDy6Sq2fP6K2tyr7e6t/CS1vFV7H/N6sCpGFVgDSsCpCGVQHSsCpAGlYFSMOqAGlYFSANqwKkYVWANKwKkIZVAdKw/wJcaE5ao4p3hQAAAABJRU5ErkJggg==";
+
+  function v177BrandHtml() {
+    return `<a class="v177-fraudfront-brand" href="https://fraud-front.com" target="_blank" rel="noopener noreferrer" aria-label="FraudFront home">
+      <img class="v177-brand-wordmark" src="${V177_FRAUDFRONT_WORDMARK}" alt="FraudFront">
+      <img class="v177-brand-mark" src="${V177_FRAUDFRONT_MARK}" alt="FraudFront">
+    </a><span class="v177-product-name">Scam Sprint</span>`;
+  }
+
+  /* A URL explicitly opened as a kiosk is demo-only. This prevents a
+     public visitor from reaching passwords, accounts, or the game selector.
+     Staff can append &preview=1 while reviewing the kiosk experience. */
+  const v176KioskLockedCoreV177 = v176KioskLocked;
+  v176KioskLocked = function v177Override_v176KioskLocked() {
+    const params = new URLSearchParams(window.location.search);
+    const preview = ["1", "true", "yes"].includes(String(params.get("preview") || "").toLowerCase());
+    if (v176QueryRequestsKiosk() && !preview) return true;
+    return v176KioskLockedCoreV177();
+  };
+
+  /* Final branding override. Existing buttons, IDs, accessibility, sound,
+     Full Game switch, and locked-kiosk behavior are preserved. */
+  topbar = function v177Override_topbar() {
+    const kiosk = v174IsKioskMode();
+    const locked = kiosk && v176KioskLocked();
+    return `<div class="topbar v174-topbar v177-branded-topbar ${locked ? "v176-locked-topbar" : ""}">
+      <div class="topbar-left v177-topbar-left">${v177BrandHtml()}</div>
+      <div class="v174-topbar-center">${locked ? `<span class="v176-kiosk-mode-pill">Five-Game Demo</span>` : v174ModeSwitchHtml()}</div>
+      <div class="topbar-actions">
+        <button class="icon-btn accessibility-btn" id="accessibilityBtn" type="button" aria-pressed="false" title="Toggle Easy View">A+</button>
+        <button class="icon-btn ${state.soundOn ? "sound-on" : "sound-off"}" id="soundBtn" type="button" title="Toggle sound">${state.soundOn ? "🔊" : "🔇"}</button>
+        <button class="icon-btn" id="homeBtn" type="button" title="${locked ? "Demo home" : "Home"}">⌂</button>
+      </div>
+    </div>`;
+  };
+
+  /* ------------------------------------------------------------
+     Senior Playability Guard
+     ------------------------------------------------------------
+     This deterministic local audit avoids sending kiosk content or visitor
+     information to an external AI service. It checks motor demand, reading
+     length, number of choices, and interaction complexity before a round can
+     enter the five-game kiosk rotation.
+     ------------------------------------------------------------ */
+  const V177_KIOSK_ALLOWED_TYPES = new Set([
+    "safeChoice", "familyCallOrder",
+    "emailBlock", "smsBlock", "smsReport",
+    "dangerWebsite", "siteInspector", "domainDuel", "qrScan", "privacyExit", "freeSiteExit",
+    "mfaShield", "permissionsToggle", "permissionToggle",
+    "deepfakeSpot", "categoryMatch", "safeWordChallenge"
+  ]);
+
+  const V177_KIOSK_EXCLUDED_TYPES = new Set([
+    "gameChatReport", "lobbyMute", "romanceEvidenceChat", "attachmentFlash", "attachmentMemory",
+    "romanceSwipe", "marketplaceMatch", "swipeJudge", "deepfakeCall",
+    "platformHints", "hintPlatformer", "fallingDodge", "shieldBlock", "spotlightSpy",
+    "spywareMaze", "popupPurge", "closeWindowX", "virusDownload", "tabStopDownload",
+    "rushStopDownload", "spamBlockHunt", "dragTrash", "giftCardShredder", "passwordVaultDrag",
+    "phoneTapSequence", "browserPatchRun", "browserRedirectMaze", "scamWhack", "fakeAdClean",
+    "linkBridge", "textDodge", "scamRainDodge", "packetPaddle", "shieldCursor", "messageShieldRun"
+  ]);
+
+  function v177FlattenRoundText(value, output = []) {
+    if (value == null || typeof value === "boolean" || typeof value === "number") return output;
+    if (typeof value === "string") { output.push(value); return output; }
+    if (Array.isArray(value)) { value.forEach((item) => v177FlattenRoundText(item, output)); return output; }
+    if (typeof value === "object") Object.values(value).forEach((item) => v177FlattenRoundText(item, output));
+    return output;
+  }
+
+  function v177RoundPlayability(round) {
+    const reasons = [];
+    const type = String(round?.type || "");
+    const difficulty = String(round?.difficulty || "easy").toLowerCase();
+    const text = v177FlattenRoundText({
+      title: round?.title,
+      command: round?.command,
+      directions: round?.directions,
+      scenario: round?.scenario,
+      options: round?.options,
+      steps: round?.steps,
+      flags: round?.flags,
+      permissions: round?.permissions,
+      domains: round?.domains,
+      body: round?.body,
+      message: round?.message
+    }).join(" ");
+    const words = (text.match(/[A-Za-z0-9'-]+/g) || []).length;
+    const fragments = v177FlattenRoundText(round);
+    const longestText = fragments.reduce((max, fragment) => Math.max(max, String(fragment).length), 0);
+    const choiceCount = [round?.options, round?.steps, round?.flags, round?.permissions, round?.domains]
+      .filter(Array.isArray).reduce((sum, items) => sum + items.length, 0);
+
+    if (!V177_KIOSK_ALLOWED_TYPES.has(type)) reasons.push("not a calm tap-based kiosk mechanic");
+    if (V177_KIOSK_EXCLUDED_TYPES.has(type)) reasons.push("requires speed, motion, swiping, or automatic message tracking");
+    if (difficulty === "hard") reasons.push("hard difficulty");
+    if (words > 90) reasons.push("too much reading for a short kiosk visit");
+    if (longestText > 165) reasons.push("one text block is too long");
+    if (choiceCount > 8) reasons.push("too many actions on one screen");
+
+    return {
+      id: String(round?.id || ""),
+      type,
+      title: String(round?.title || "Untitled"),
+      words,
+      choiceCount,
+      longestText,
+      score: words + choiceCount * 4 + (difficulty === "medium" ? 12 : 0),
+      pass: reasons.length === 0,
+      reasons
+    };
+  }
+
+  function v177CalmKioskRound(round) {
+    const calmText = (value) => String(value || "")
+      .replace(/before time runs out\.?/gi, "")
+      .replace(/as fast as you can\.?/gi, "Take your time.")
+      .replace(/quickly/gi, "carefully")
+      .replace(/rush/gi, "review")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    return {
+      ...round,
+      difficulty: "easy",
+      seconds: 999,
+      directions: calmText(round.directions) || "Read the situation, then tap the safest choice."
+    };
+  }
+
+  function v177PickKioskRound(types, used) {
+    const candidates = ROUNDS
+      .filter((round) => types.includes(round.type) && !used.has(round.id))
+      .map((round) => ({ round, audit: v177RoundPlayability(round) }))
+      .filter((entry) => entry.audit.pass)
+      .sort((a, b) => a.audit.score - b.audit.score);
+    if (!candidates.length) return null;
+    const shortList = candidates.slice(0, Math.min(8, candidates.length));
+    return shortList[Math.floor(Math.random() * shortList.length)].round;
+  }
+
+  v176SelectSeniorKioskRounds = function v177Override_v176SelectSeniorKioskRounds() {
+    const buckets = [
+      ["safeChoice", "familyCallOrder"],
+      ["emailBlock", "smsBlock", "smsReport"],
+      ["dangerWebsite", "siteInspector", "domainDuel", "qrScan", "privacyExit", "freeSiteExit"],
+      ["mfaShield", "permissionsToggle", "permissionToggle"],
+      ["deepfakeSpot", "categoryMatch", "safeWordChallenge"]
+    ];
+    const used = new Set();
+    const chosen = [];
+
+    buckets.forEach((types) => {
+      const round = v177PickKioskRound(types, used);
+      if (round) { chosen.push(v177CalmKioskRound(round)); used.add(round.id); }
+    });
+
+    if (chosen.length < 5) {
+      ROUNDS
+        .map((round) => ({ round, audit: v177RoundPlayability(round) }))
+        .filter((entry) => entry.audit.pass && !used.has(entry.round.id))
+        .sort((a, b) => a.audit.score - b.audit.score)
+        .forEach((entry) => {
+          if (chosen.length >= 5) return;
+          chosen.push(v177CalmKioskRound(entry.round));
+          used.add(entry.round.id);
+        });
+    }
+
+    return shuffle(chosen).slice(0, 5);
+  };
+
+  /* Development helper: run FF_KIOSK_PLAYABILITY_REPORT() in the browser
+     console to inspect which preserved rounds are suitable for seniors. */
+  window.FF_KIOSK_PLAYABILITY_REPORT = function FF_KIOSK_PLAYABILITY_REPORT() {
+    return ROUNDS.map(v177RoundPlayability).sort((a, b) => Number(b.pass) - Number(a.pass) || a.score - b.score);
+  };
+
+  /* Demo Kiosk has no automatic question timeout. Full Game timers remain
+     exactly as configured. */
+  const v176StartTimerCoreV177 = startTimer;
+  startTimer = function v177Override_startTimer(round) {
+    if (state.kioskDemo && v174IsKioskMode()) {
+      state.timeLeft = 100;
+      return;
+    }
+    return v176StartTimerCoreV177(round);
+  };
+
+  /* Completing the full five-game visit is itself the engagement milestone,
+     so the take-home QR is always available at the end. */
+  const v176RewardUnlockedCoreV177 = v176RewardUnlocked;
+  v176RewardUnlocked = function v177Override_v176RewardUnlocked() {
+    if (state.kioskDemo && v174IsKioskMode()) return true;
+    return v176RewardUnlockedCoreV177();
+  };
 
 
   /* ============================================================
